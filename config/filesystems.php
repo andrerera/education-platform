@@ -60,7 +60,17 @@ return [
             'report' => false,
         ],
 
-    ],
+        'supabase' => [
+        'driver' => 's3',
+        'key'    => env('SUPABASE_KEY'),
+        'secret' => '',
+        'region' => 'us-east-1',
+        'bucket' => 'edufiles',
+        'endpoint' => env('SUPABASE_URL') . '/storage/v1/s3',
+        'visibility' => 'public',
+        'use_path_style_endpoint' => true,
+    ]
+],
 
     /*
     |--------------------------------------------------------------------------
