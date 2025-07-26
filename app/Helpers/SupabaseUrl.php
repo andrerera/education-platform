@@ -11,7 +11,7 @@ class SupabaseUrl
         }
 
         $baseUrl = rtrim(env('SUPABASE_URL'), '/');
-        $bucket = env('SUPABASE_BUCKET', 'edufiles'); // Use 'edufiles' as default
+        $bucket = env('SUPABASE_BUCKET', 'edufiles');
         $path = ltrim($path, '/');
         return "{$baseUrl}/storage/v1/object/public/{$bucket}/{$path}";
     }
