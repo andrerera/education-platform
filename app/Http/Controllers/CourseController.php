@@ -58,9 +58,7 @@ class CourseController extends Controller
         // Upload thumbnail to Supabase (optional)
         $thumbnailPath = '-';
         if ($request->hasFile('thumbnail')) {
-            $file = $request->file('thumbnail');
-            $fileName = uniqid() . '.' . $file->getClientOriginalExtension();
-            $thumbnailPath = SupabaseUploader::upload($file, 'thumbnails', $fileName);
+            $thumbnailPath = SupabaseUploader::upload($request->file('thumbnail'), 'thumbnail');
         }
 
         // Create Course
@@ -82,9 +80,7 @@ class CourseController extends Controller
 
             case 'video':
                 if ($request->video_option === 'upload' && $request->hasFile('video_file')) {
-                    $file = $request->file('video_file');
-                    $fileName = uniqid() . '.' . $file->getClientOriginalExtension();
-                    $content = SupabaseUploader::upload($file, 'videos', $fileName);
+                    $content = SupabaseUploader::upload($request->file('video_file'), 'video/uploaded');
                 } elseif ($request->video_option === 'url') {
                     $content = $request->video_url;
                 }
@@ -92,17 +88,13 @@ class CourseController extends Controller
 
             case 'audio':
                 if ($request->hasFile('audio_file')) {
-                    $file = $request->file('audio_file');
-                    $fileName = uniqid() . '.' . $file->getClientOriginalExtension();
-                    $content = SupabaseUploader::upload($file, 'audios', $fileName);
+                    $content = SupabaseUploader::upload($request->file('audio_file'), 'audio');
                 }
                 break;
 
             case 'pdf':
                 if ($request->hasFile('pdf_file')) {
-                    $file = $request->file('pdf_file');
-                    $fileName = uniqid() . '.' . $file->getClientOriginalExtension();
-                    $content = SupabaseUploader::upload($file, 'pdfs', $fileName);
+                    $content = SupabaseUploader::upload($request->file('pdf_file'), 'pdf');
                 }
                 break;
         }
