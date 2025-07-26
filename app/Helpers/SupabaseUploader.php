@@ -1,4 +1,5 @@
 <?php
+namespace App\Helpers;
 
 use GuzzleHttp\Psr7\Utils;
 use Illuminate\Support\Facades\Http;
