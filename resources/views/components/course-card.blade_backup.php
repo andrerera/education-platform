@@ -1,17 +1,9 @@
 @isset($course)
-@php
-    use App\Helpers\SupabaseUrl;
-
-    $thumbnailUrl = $course->thumbnail !== '-' 
-        ? SupabaseUrl::getPublicUrl($course->thumbnail) 
-        : asset('images/default.jpg');
-@endphp
-
 <div class="bg-white rounded-xl overflow-hidden shadow-lg hover:shadow-xl transition-all duration-300 transform hover:-translate-y-1 flex flex-col h-full">
   <!-- Gambar -->
   <div class="relative">
     <img class="w-full h-48 object-cover" 
-         src="{{ $thumbnailUrl }}" 
+         src="{{ $course->thumbnail !== '-' ? asset('storage/' . $course->thumbnail) : asset('images/default.jpg') }}" 
          alt="{{ $course->title }}">
     
     @if(isset($enrolledCourseIds) && in_array($course->id, $enrolledCourseIds))
@@ -33,6 +25,14 @@
     <h3 class="font-bold text-lg text-gray-800 mb-2 line-clamp-2 leading-tight">
       {{ $course->title }}
     </h3>
+    
+    <!-- (Optional) Placeholder for Rating - dihapus atau diganti teks default -->
+    {{-- <div class="flex items-center mb-3">
+      <div class="flex items-center text-yellow-500 text-sm">
+        <span class="mr-1">⭐</span>
+        <span class="font-medium">4.5</span>
+      </div>
+    </div> --}}
 
     <!-- Description -->
     <p class="text-gray-600 text-sm line-clamp-3 mb-4 flex-1">
@@ -41,6 +41,7 @@
 
     <!-- Info tags -->
     <div class="flex flex-wrap gap-2 text-xs text-gray-600 mb-4">
+      {{-- Durasi (opsional) --}}
       @if(!empty($course->duration))
         <span class="bg-blue-50 text-blue-700 rounded-full px-3 py-1 font-medium border border-blue-200">
           ⏱️ {{ $course->duration }}
