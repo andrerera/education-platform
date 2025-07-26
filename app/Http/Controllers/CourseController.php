@@ -6,7 +6,6 @@ use App\Models\Course;
 use App\Models\CourseContent;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Storage;
 use App\Helpers\SupabaseUploader;
 
 class CourseController extends Controller
@@ -25,11 +24,16 @@ class CourseController extends Controller
     {
         $contents = $course->contents()->orderBy('order')->get();
 
-        $isEnrolled = auth()->check()
-            ? $course->students()->where('user_id', auth()->id())->exists()
-            : false;
+        $isEnrolled = false;
+        if (auth()->check()) {
+            $isEnrolled = $course->students()->where('user_id', auth()->id())->exists();
+        }
 
-        return view('courses.show', compact('course', 'contents', 'isEnrolled'));
+        return view('courses.show', [
+            'course' => $course,
+            'contents' => $contents,
+            'isEnrolled' => $isEnrolled,
+        ]);
     }
 
     public function create()
@@ -37,74 +41,83 @@ class CourseController extends Controller
         return view('courses.create');
     }
 
-public function store(Request $request)
-{
-    $request->validate([
-        'title' => 'required|string|max:255',
-        'thumbnail' => 'nullable|image',
-        'content_type' => 'required|in:article,video,audio,pdf',
-        'description' => 'nullable|string',
-        'video_option' => 'nullable|in:upload,url',
-        'video_file' => 'nullable|file|mimetypes:video/*',
-        'video_url' => 'nullable|url',
-        'audio_file' => 'nullable|file|mimes:mp3',
-        'pdf_file' => 'nullable|file|mimes:pdf',
-    ]);
-
-    // ✅ Upload thumbnail ke Supabase (jika ada)
-    $thumbnailPath = null;
-    if ($request->hasFile('thumbnail')) {
-        $thumbnailPath = SupabaseUploader::upload($request->file('thumbnail'), 'thumbnail');
-    }
-
-    // 📝 Simpan course
-    $course = Course::create([
-        'title' => $request->title,
-        'description' => $request->description ?? '-',
-        'thumbnail' => $thumbnailPath,
-        'status' => 'pending',
-        'user_id' => auth()->id(),
-    ]);
-
-    // 🔀 Upload konten utama
-    $contentPath = null;
-    switch ($request->content_type) {
-        case 'article':
-            $contentPath = $request->description;
-            break;
-
-        case 'video':
-            if ($request->video_option === 'upload' && $request->hasFile('video_file')) {
-                $contentPath = SupabaseUploader::upload($request->file('video_file'), 'video/uploaded');
-            } elseif ($request->video_option === 'url') {
-                $contentPath = $request->video_url;
-            }
-            break;
-
-        case 'audio':
-            if ($request->hasFile('audio_file')) {
-                $contentPath = SupabaseUploader::upload($request->file('audio_file'), 'audio');
-            }
-            break;
-
-        case 'pdf':
-            if ($request->hasFile('pdf_file')) {
-                $contentPath = SupabaseUploader::upload($request->file('pdf_file'), 'pdf');
-            }
-            break;
-    }
-
-    // 💾 Simpan ke tabel CourseContent
-    if ($contentPath) {
-        CourseContent::create([
-            'course_id' => $course->id,
-            'content_type' => $request->content_type,
-            'content' => $contentPath,
+    public function store(Request $request)
+    {
+        $request->validate([
+            'title' => 'required|string|max:255',
+            'thumbnail' => 'nullable|image',
+            'content_type' => 'required|in:article,video,audio,pdf',
+            'description' => 'nullable|string',
+            'video_option' => 'nullable|in:upload,url',
+            'video_file' => 'nullable|file|mimetypes:video/*',
+            'video_url' => 'nullable|url',
+            'audio_file' => 'nullable|file|mimes:mp3',
+            'pdf_file' => 'nullable|file|mimes:pdf',
         ]);
-    }
 
-    return redirect()->route('home')->with('success', 'Course submitted for review.');
-}
+        // Upload thumbnail to Supabase (optional)
+        $thumbnailPath = '-';
+        if ($request->hasFile('thumbnail')) {
+            $file = $request->file('thumbnail');
+            $fileName = uniqid() . '.' . $file->getClientOriginalExtension();
+            $thumbnailPath = SupabaseUploader::upload($file, 'thumbnails', $fileName);
+        }
+
+        // Create Course
+        $course = Course::create([
+            'title' => $request->title,
+            'description' => $request->description ?? '-',
+            'thumbnail' => $thumbnailPath,
+            'status' => 'pending',
+            'user_id' => auth()->id(),
+        ]);
+
+        // Handle Course Content
+        $content = null;
+
+        switch ($request->content_type) {
+            case 'article':
+                $content = $request->description;
+                break;
+
+            case 'video':
+                if ($request->video_option === 'upload' && $request->hasFile('video_file')) {
+                    $file = $request->file('video_file');
+                    $fileName = uniqid() . '.' . $file->getClientOriginalExtension();
+                    $content = SupabaseUploader::upload($file, 'videos', $fileName);
+                } elseif ($request->video_option === 'url') {
+                    $content = $request->video_url;
+                }
+                break;
+
+            case 'audio':
+                if ($request->hasFile('audio_file')) {
+                    $file = $request->file('audio_file');
+                    $fileName = uniqid() . '.' . $file->getClientOriginalExtension();
+                    $content = SupabaseUploader::upload($file, 'audios', $fileName);
+                }
+                break;
+
+            case 'pdf':
+                if ($request->hasFile('pdf_file')) {
+                    $file = $request->file('pdf_file');
+                    $fileName = uniqid() . '.' . $file->getClientOriginalExtension();
+                    $content = SupabaseUploader::upload($file, 'pdfs', $fileName);
+                }
+                break;
+        }
+
+        // Save content if exists
+        if ($content) {
+            CourseContent::create([
+                'course_id' => $course->id,
+                'content_type' => $request->content_type,
+                'content' => $content,
+            ]);
+        }
+
+        return redirect()->route('home')->with('success', 'Course submitted for review.');
+    }
 
     public function mySubmissions()
     {
