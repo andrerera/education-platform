@@ -1,7 +1,7 @@
 @isset($course)
 @php
     $thumbnailUrl = $course->thumbnail !== '-' 
-        ? StorageUrl::getPublicUrl($course->thumbnail) 
+        ? SupabaseUrl::getPublicUrl($course->thumbnail) 
         : asset('images/default.jpg');
 @endphp
 
