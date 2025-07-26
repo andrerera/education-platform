@@ -8,9 +8,9 @@ class RemoveRoleIdFromUsersTable extends Migration
 {
     public function up()
     {
-        Schema::table('users', function (Blueprint $table) {
-            $table->dropColumn('role_id');
-        });
+        // Schema::table('users', function (Blueprint $table) {
+        //     $table->dropColumn('role_id');
+        // });
     }
 
     public function down()

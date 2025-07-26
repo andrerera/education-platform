@@ -1,112 +1,98 @@
-<!-- Header/Navbar -->
-<header class="absolute inset-x-0 top-0 z-50">
-  <nav aria-label="Global" class="flex items-center justify-between p-6 lg:px-8">
-    <div class="flex lg:flex-1">
-      <a href="{{ route('home') }}" class="-m-1.5 p-1.5">
-        <span class="sr-only">EduPlatform</span>
-        <span class="text-2xl font-bold text-indigo-600">EduPlatform</span>
-      </a>
-    </div>
-
-    <!-- Mobile menu button -->
-    <div class="flex lg:hidden">
-      <button type="button" id="mobile-menu-button" class="-m-2.5 inline-flex items-center justify-center rounded-md p-2.5 text-gray-700">
-        <span class="sr-only">Open main menu</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-6">
-          <path d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" stroke-linecap="round" stroke-linejoin="round" />
-        </svg>
-      </button>
-    </div>
-
-    <!-- Desktop navigation -->
-    <div class="hidden lg:flex lg:gap-x-12">
-      <a href="{{ route('home') }}" class="text-sm/6 font-semibold text-gray-900 hover:text-indigo-600">Home</a>
-      @auth
-        @if(auth()->user()->hasRole('admin'))
-          <a href="{{ route('admin.dashboard') }}" class="text-sm/6 font-semibold text-gray-900 hover:text-indigo-600">Admin</a>
-        @endif
-      @endauth
-      <a href="#" class="text-sm/6 font-semibold text-gray-900 hover:text-indigo-600">About</a>
-      <a href="#" class="text-sm/6 font-semibold text-gray-900 hover:text-indigo-600">Contact</a>
-    </div>
-
-    <!-- Auth buttons -->
-    <div class="hidden lg:flex lg:flex-1 lg:justify-end lg:gap-x-4">
-      @auth
-        @if(auth()->check())
-          @if(auth()->user()->hasRole('creator'))
-            <a href="{{ route('creator.dashboard') }}" class="-mx-3 block rounded-lg px-3 text-sm/6 font-semibold hover:text-indigo-600 text-gray-900 hover:bg-gray-50">Dashboard</a>
-            <a href="{{ route('courses.create') }}" class="-mx-3 block rounded-lg px-3 text-sm/6 font-semibold hover:text-indigo-600 text-gray-900 hover:bg-gray-50">Create Course</a>
-          @elseif(auth()->user()->hasRole('admin'))
-            <a href="{{ route('admin.dashboard') }}" class="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 hover:bg-gray-50">Admin Dashboard</a>
-          
-          @elseif(auth()->user()->hasRole('user'))  
-        <a href="{{ route('user.my-courses') }}" class="text-sm/6 font-semibold text-gray-900 hover:text-indigo-600">Kursus Saya</a>
-        @endif
-      @endif
-        <form action="{{ route('logout') }}" method="POST" class="inline">
-          @csrf
-          <button type="submit" class="text-sm/6 font-semibold text-gray-900 hover:text-red-600">
-            Logout
-          </button>
-        </form>
-      @else
-        <a href="{{ route('login') }}" class="text-sm/6 font-semibold text-gray-900 hover:text-indigo-600">Log in</a>
-        <a href="{{ route('register') }}" class="rounded-md bg-indigo-600 px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-indigo-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600">
-          Register
+<nav class="navbar sticky-top navbar-light bg-light navbar-expand-lg" aria-label="Third navbar example">
+    <div class="container">
+        <a class="navbar-brand" href="{{ route('home') }}">
+            <img src="{{ asset('icons/logo-white.svg') }}" class="img-logo" alt="Kyulearn">
         </a>
-      @endauth
-    </div>
-  </nav>
-
-  <!-- Mobile menu -->
-  <div id="mobile-menu" class="lg:hidden hidden" role="dialog" aria-modal="true">
-    <div class="fixed inset-0 z-50"></div>
-    <div class="fixed inset-y-0 right-0 z-50 w-full overflow-y-auto bg-white p-6 sm:max-w-sm sm:ring-1 sm:ring-gray-900/10">
-      <div class="flex items-center justify-between">
-        <a href="{{ route('home') }}" class="-m-1.5 p-1.5">
-          <span class="sr-only">EduPlatform</span>
-          <span class="text-2xl font-bold text-indigo-600">EduPlatform</span>
-        </a>
-        <button type="button" id="mobile-menu-close" class="-m-2.5 rounded-md p-2.5 text-gray-700">
-          <span class="sr-only">Close menu</span>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" class="size-6">
-            <path d="M6 18 18 6M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
-          </svg>
-        </button>
-      </div>
-      <div class="mt-6 flow-root">
-        <div class="-my-6 divide-y divide-gray-500/10">
-          <div class="space-y-2 py-6">
-            <a href="{{ route('home') }}" class="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 hover:bg-gray-50">Home</a>
-            @auth
-              @if(auth()->user()->hasRole('admin'))
-                <a href="{{ route('admin.dashboard') }}" class="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 hover:bg-gray-50">Admin Dashboard</a>
-              @elseif(auth()->user()->hasRole('creator'))
-                <a href="{{ route('creator.dashboard') }}" class="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 hover:bg-gray-50">Dashboard</a>
-              @else
-                <a href="{{ route('user.my-courses') }}" class="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 hover:bg-gray-50">Kursus Saya</a>
-              @endif
-            @endauth
-            <a href="#" class="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 hover:bg-gray-50">About</a>
-            <a href="#" class="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 hover:bg-gray-50">Contact</a>
-          </div>
-          <div class="py-6">
-            @auth
-              <form action="{{ route('logout') }}" method="POST" class="inline w-full">
-                @csrf
-                <button type="submit" class="-mx-3 block rounded-lg px-3 py-2.5 text-base/7 font-semibold text-gray-900 hover:bg-gray-50 w-full text-left">
-                  Logout
-                </button>
-              </form>
-              <a href="{{ route('courses.create') }}" class="-mx-3 block rounded-lg px-3 py-2 text-base/7 font-semibold text-gray-900 hover:bg-gray-50">Create Course</a>
-            @else
-              <a href="{{ route('login') }}" class="-mx-3 block rounded-lg px-3 py-2.5 text-base/7 font-semibold text-gray-900 hover:bg-gray-50">Log in</a>
-              <a href="{{ route('register') }}" class="-mx-3 block rounded-lg px-3 py-2.5 text-base/7 font-semibold bg-indigo-600 text-white hover:bg-indigo-500 mt-2">Register</a>
-            @endauth
-          </div>
+        
+        <div class="d-flex d-lg-none col-auto ms-auto me-3">
+            <button type="button" class="btn pe-0">
+                <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M9.8698 0C15.3119 0 19.7386 4.42666 19.7386 9.86878C19.7386 12.4364 18.7532 14.7781 17.1408 16.5356L20.3136 19.7018C20.6105 19.9987 20.6116 20.4791 20.3146 20.776C20.1667 20.926 19.9711 21 19.7765 21C19.5829 21 19.3883 20.926 19.2394 20.7781L16.0283 17.5759C14.3391 18.9287 12.1973 19.7386 9.8698 19.7386C4.42768 19.7386 0 15.3109 0 9.86878C0 4.42666 4.42768 0 9.8698 0ZM9.8698 1.52015C5.26578 1.52015 1.52015 5.26477 1.52015 9.86878C1.52015 14.4728 5.26578 18.2184 9.8698 18.2184C14.4728 18.2184 18.2184 14.4728 18.2184 9.86878C18.2184 5.26477 14.4728 1.52015 9.8698 1.52015Z" fill="#333333"/>
+                </svg>
+            </button>
+            <button type="button" class="btn pe-0 position-relative">
+                <svg width="27" height="25" viewBox="0 0 27 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M7.13065 21.6877C8.04412 21.6877 8.78743 22.4297 8.78743 23.3432C8.78743 24.2567 8.04412 25 7.13065 25C6.21718 25 5.47514 24.2567 5.47514 23.3432C5.47514 22.4297 6.21718 21.6877 7.13065 21.6877ZM21.5623 21.6877C22.4771 21.6877 23.2204 22.4297 23.2204 23.3432C23.2204 24.2567 22.4771 25 21.5623 25C20.6488 25 19.9068 24.2567 19.9068 23.3432C19.9068 22.4297 20.6488 21.6877 21.5623 21.6877ZM1.66032 0.0121374L4.32141 0.47271C4.75 0.548193 5.07624 0.903857 5.11334 1.33884L5.41399 4.92235L6.53197 4.92284C6.7144 4.92292 6.8949 4.923 7.07349 4.92308L9.12598 4.92405C9.28959 4.92414 9.45137 4.92422 9.61133 4.9243L11.8776 4.92554C12.02 4.92563 12.1606 4.92571 12.2996 4.92579L13.8877 4.92681C14.0136 4.92689 14.1378 4.92698 14.2604 4.92706L15.6572 4.92809C15.7675 4.92818 15.8763 4.92826 15.9836 4.92835L17.2015 4.9294C17.2973 4.92949 17.3917 4.92957 17.4847 4.92966L18.2851 4.93046C18.3701 4.93055 18.4537 4.93063 18.536 4.93072L19.463 4.9318C19.5353 4.93189 19.6064 4.93198 19.6763 4.93207L20.4589 4.93316C20.5196 4.93326 20.5792 4.93335 20.6377 4.93344L21.1351 4.93427C21.1872 4.93436 21.2383 4.93446 21.2884 4.93455L21.8425 4.93567C21.8849 4.93577 21.9263 4.93586 21.9669 4.93595L22.3079 4.93681C22.3432 4.9369 22.3776 4.937 22.4113 4.93709L22.7769 4.93825C22.8043 4.93834 22.8309 4.93844 22.8569 4.93854L23.0715 4.93941C23.0934 4.93951 23.1145 4.93961 23.1351 4.93971L23.3522 4.94089C23.368 4.94099 23.3832 4.94109 23.3979 4.94119L23.5162 4.94209C23.5279 4.94219 23.5391 4.94229 23.5499 4.94239L23.6351 4.94329C23.6433 4.9434 23.6511 4.9435 23.6586 4.9436L23.7166 4.94452C23.7221 4.94462 23.7272 4.94472 23.7321 4.94482L23.7688 4.94575C23.7721 4.94586 23.7752 4.94596 23.7781 4.94606L23.8047 4.94732C23.8063 4.94742 23.8078 4.94753 23.8092 4.94763C23.8217 4.9488 23.8235 4.94901 23.8254 4.94922C24.538 5.05285 25.1649 5.42515 25.5922 5.9983C26.0195 6.57018 26.1986 7.27511 26.0963 7.98133L24.8821 16.3714C24.6531 17.9681 23.2663 19.172 21.6543 19.172H7.68231C5.99738 19.172 4.57089 17.8568 4.434 16.1744L3.26209 2.23696L1.33409 1.90432C0.810824 1.81221 0.461556 1.31709 0.551112 0.793832C0.643227 0.27057 1.14858 -0.0697422 1.66032 0.0121374ZM6.2753 6.84184L5.57519 6.84141L6.34665 16.017C6.40294 16.7232 6.97994 17.2529 7.68487 17.2529H21.6517C22.3183 17.2529 22.8876 16.7565 22.9823 16.0976L24.1977 7.70626C24.2258 7.50668 24.1759 7.3071 24.0544 7.1459C23.9341 6.98342 23.7576 6.87851 23.558 6.85036C23.5488 6.85072 23.5267 6.85104 23.4923 6.85133L23.3532 6.85213C23.3241 6.85225 23.2921 6.85236 23.2572 6.85246L22.5324 6.85357C22.4713 6.85361 22.4077 6.85365 22.3418 6.85368L20.6377 6.85361C20.5426 6.85357 20.4457 6.85353 20.3471 6.85349L18.4024 6.85231C18.2858 6.85222 18.168 6.85213 18.0491 6.85204L16.9486 6.85116C16.8233 6.85106 16.697 6.85095 16.5698 6.85084L15.4042 6.84982C15.2726 6.8497 15.1403 6.84958 15.0075 6.84946L14.2046 6.84872C14.0699 6.8486 13.9348 6.84847 13.7994 6.84834L12.5741 6.8472C12.4375 6.84707 12.3008 6.84694 12.1641 6.84682L11.3445 6.84605C11.2081 6.84593 11.0718 6.8458 10.9358 6.84568L10.1231 6.84494C9.98837 6.84482 9.85399 6.8447 9.72007 6.84458L8.52961 6.84356C8.39921 6.84345 8.26951 6.84334 8.1406 6.84324L6.63616 6.84209C6.51475 6.84201 6.39444 6.84192 6.2753 6.84184ZM19.5969 9.65129C20.1266 9.65129 20.5565 10.0812 20.5565 10.6108C20.5565 11.1405 20.1266 11.5703 19.5969 11.5703H16.0505C15.5196 11.5703 15.091 11.1405 15.091 10.6108C15.091 10.0812 15.5196 9.65129 16.0505 9.65129H19.5969Z" fill="#333333"/>
+                </svg>
+                <svg class="position-absolute top-0" width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg" style="right: -5;">
+                    <circle cx="7" cy="9" r="7" fill="#EB5757"></circle>
+                    <path d="M5.54 5.5V4.252H8.036V13H6.656V5.5H5.54Z" fill="white"></path>
+                </svg>
+            </button>
         </div>
-      </div>
+        
+        <button class="navbar-toggler collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#navbarsExample03" aria-controls="navbarsExample03" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        
+        <div class="navbar-collapse collapse" id="navbarsExample03">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('home') ? 'active' : '' }}" href="{{ route('home') }}">Home</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link {{ request()->routeIs('courses.*') ? 'active' : '' }}" href="{{ route('home') }}">Course</a>
+                </li>
+                @auth
+                    @if(auth()->user()->hasRole('admin'))
+                        <li class="nav-item">
+                            <a class="nav-link" href="{{ route('admin.dashboard') }}">Admin</a>
+                        </li>
+                    @endif
+                @endauth
+                <li class="nav-item">
+                    <a class="nav-link" href="javascript:void(0)" data-bs-toggle="modal" data-bs-target="#aboutModals">About</a>
+                </li>
+            </ul>
+            
+            <div class="d-flex flex-wrap d-lg-none">
+                @auth
+                    <a type="button" class="btn w-50" href="{{ route('logout') }}" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">Logout</a>
+                    <form id="logout-form" action="{{ route('logout') }}" method="POST" class="d-none">
+                        @csrf
+                    </form>
+                @else
+                    <a type="button" class="btn w-50" href="{{ route('register') }}">Sign Up</a>
+                    <a type="button" class="btn btn-primary w-50" href="{{ route('login') }}">Login</a>
+                @endauth
+            </div>
+        </div>
+        
+        <div class="d-none d-lg-flex align-items-center">
+            <button type="button" class="btn me-2">
+                <svg width="25" height="25" viewBox="0 0 25 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M9.8698 0C15.3119 0 19.7386 4.42666 19.7386 9.86878C19.7386 12.4364 18.7532 14.7781 17.1408 16.5356L20.3136 19.7018C20.6105 19.9987 20.6116 20.4791 20.3146 20.776C20.1667 20.926 19.9711 21 19.7765 21C19.5829 21 19.3883 20.926 19.2394 20.7781L16.0283 17.5759C14.3391 18.9287 12.1973 19.7386 9.8698 19.7386C4.42768 19.7386 0 15.3109 0 9.86878C0 4.42666 4.42768 0 9.8698 0ZM9.8698 1.52015C5.26578 1.52015 1.52015 5.26477 1.52015 9.86878C1.52015 14.4728 5.26578 18.2184 9.8698 18.2184C14.4728 18.2184 18.2184 14.4728 18.2184 9.86878C18.2184 5.26477 14.4728 1.52015 9.8698 1.52015Z" fill="#333333"/>
+                </svg>
+            </button>
+            <button type="button" class="btn me-2 position-relative">
+                <svg width="27" height="25" viewBox="0 0 27 25" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path fill-rule="evenodd" clip-rule="evenodd" d="M7.13065 21.6877C8.04412 21.6877 8.78743 22.4297 8.78743 23.3432C8.78743 24.2567 8.04412 25 7.13065 25C6.21718 25 5.47514 24.2567 5.47514 23.3432C5.47514 22.4297 6.21718 21.6877 7.13065 21.6877ZM21.5623 21.6877C22.4771 21.6877 23.2204 22.4297 23.2204 23.3432C23.2204 24.2567 22.4771 25 21.5623 25C20.6488 25 19.9068 24.2567 19.9068 23.3432C19.9068 22.4297 20.6488 21.6877 21.5623 21.6877ZM1.66032 0.0121374L4.32141 0.47271C4.75 0.548193 5.07624 0.903857 5.11334 1.33884L5.41399 4.92235L6.53197 4.92284C6.7144 4.92292 6.8949 4.923 7.07349 4.92308L9.12598 4.92405C9.28959 4.92414 9.45137 4.92422 9.61133 4.9243L11.8776 4.92554C12.02 4.92563 12.1606 4.92571 12.2996 4.92579L13.8877 4.92681C14.0136 4.92689 14.1378 4.92698 14.2604 4.92706L15.6572 4.92809C15.7675 4.92818 15.8763 4.92826 15.9836 4.92835L17.2015 4.9294C17.2973 4.92949 17.3917 4.92957 17.4847 4.92966L18.2851 4.93046C18.3701 4.93055 18.4537 4.93063 18.536 4.93072L19.463 4.9318C19.5353 4.93189 19.6064 4.93198 19.6763 4.93207L20.4589 4.93316C20.5196 4.93326 20.5792 4.93335 20.6377 4.93344L21.1351 4.93427C21.1872 4.93436 21.2383 4.93446 21.2884 4.93455L21.8425 4.93567C21.8849 4.93577 21.9263 4.93586 21.9669 4.93595L22.3079 4.93681C22.3432 4.9369 22.3776 4.937 22.4113 4.93709L22.7769 4.93825C22.8043 4.93834 22.8309 4.93844 22.8569 4.93854L23.0715 4.93941C23.0934 4.93951 23.1145 4.93961 23.1351 4.93971L23.3522 4.94089C23.368 4.94099 23.3832 4.94109 23.3979 4.94119L23.5162 4.94209C23.5279 4.94219 23.5391 4.94229 23.5499 4.94239L23.6351 4.94329C23.6433 4.9434 23.6511 4.9435 23.6586 4.9436L23.7166 4.94452C23.7221 4.94462 23.7272 4.94472 23.7321 4.94482L23.7688 4.94575C23.7721 4.94586 23.7752 4.94596 23.7781 4.94606L23.8047 4.94732C23.8063 4.94742 23.8078 4.94753 23.8092 4.94763C23.8217 4.9488 23.8235 4.94901 23.8254 4.94922C24.538 5.05285 25.1649 5.42515 25.5922 5.9983C26.0195 6.57018 26.1986 7.27511 26.0963 7.98133L24.8821 16.3714C24.6531 17.9681 23.2663 19.172 21.6543 19.172H7.68231C5.99738 19.172 4.57089 17.8568 4.434 16.1744L3.26209 2.23696L1.33409 1.90432C0.810824 1.81221 0.461556 1.31709 0.551112 0.793832C0.643227 0.27057 1.14858 -0.0697422 1.66032 0.0121374ZM6.2753 6.84184L5.57519 6.84141L6.34665 16.017C6.40294 16.7232 6.97994 17.2529 7.68487 17.2529H21.6517C22.3183 17.2529 22.8876 16.7565 22.9823 16.0976L24.1977 7.70626C24.2258 7.50668 24.1759 7.3071 24.0544 7.1459C23.9341 6.98342 23.7576 6.87851 23.558 6.85036C23.5488 6.85072 23.5267 6.85104 23.4923 6.85133L23.3532 6.85213C23.3241 6.85225 23.2921 6.85236 23.2572 6.85246L22.5324 6.85357C22.4713 6.85361 22.4077 6.85365 22.3418 6.85368L20.6377 6.85361C20.5426 6.85357 20.4457 6.85353 20.3471 6.85349L18.4024 6.85231C18.2858 6.85222 18.168 6.85213 18.0491 6.85204L16.9486 6.85116C16.8233 6.85106 16.697 6.85095 16.5698 6.85084L15.4042 6.84982C15.2726 6.8497 15.1403 6.84958 15.0075 6.84946L14.2046 6.84872C14.0699 6.8486 13.9348 6.84847 13.7994 6.84834L12.5741 6.8472C12.4375 6.84707 12.3008 6.84694 12.1641 6.84682L11.3445 6.84605C11.2081 6.84593 11.0718 6.8458 10.9358 6.84568L10.1231 6.84494C9.98837 6.84482 9.85399 6.8447 9.72007 6.84458L8.52961 6.84356C8.39921 6.84345 8.26951 6.84334 8.1406 6.84324L6.63616 6.84209C6.51475 6.84201 6.39444 6.84192 6.2753 6.84184ZM19.5969 9.65129C20.1266 9.65129 20.5565 10.0812 20.5565 10.6108C20.5565 11.1405 20.1266 11.5703 19.5969 11.5703H16.0505C15.5196 11.5703 15.091 11.1405 15.091 10.6108C15.091 10.0812 15.5196 9.65129 16.0505 9.65129H19.5969Z" fill="#333333"/>
+                </svg>
+                <svg class="position-absolute top-0" width="14" height="18" viewBox="0 0 14 18" fill="none" xmlns="http://www.w3.org/2000/svg" style="right: 4;">
+                    <circle cx="7" cy="9" r="7" fill="#EB5757"></circle>
+                    <path d="M5.54 5.5V4.252H8.036V13H6.656V5.5H5.54Z" fill="white"></path>
+                </svg>
+            </button>
+            <span style="border-left: 1px solid #cecece;" class="py-2"></span>
+            
+            @auth
+                @if(auth()->user()->hasRole('creator'))
+                    <a type="button" class="btn px-4 mx-2" href="{{ route('creator.dashboard') }}">Dashboard</a>
+                    <a type="button" class="btn btn-primary px-5" href="{{ route('courses.create') }}">Create Course</a>
+                @elseif(auth()->user()->hasRole('admin'))
+                    <a type="button" class="btn px-4 mx-2" href="{{ route('admin.dashboard') }}">Admin</a>
+                    <a type="button" class="btn btn-primary px-5" href="{{ route('logout') }}" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">Logout</a>
+                @else
+                    <a type="button" class="btn px-4 mx-2" href="{{ route('user.my-courses') }}">My Courses</a>
+                    <a type="button" class="btn btn-primary px-5" href="{{ route('logout') }}" onclick="event.preventDefault(); document.getElementById('logout-form').submit();">Logout</a>
+                @endif
+                <form id="logout-form" action="{{ route('logout') }}" method="POST" class="d-none">
+                    @csrf
+                </form>
+            @else
+                <a type="button" class="btn px-4 mx-2" href="{{ route('register') }}">Sign Up</a>
+                <a type="button" class="btn btn-primary px-5" href="{{ route('login') }}">Login</a>
+            @endauth
+        </div>
     </div>
-  </div>
-</header> 
+</nav> 

@@ -3,150 +3,211 @@
 @extends('layouts.app')
 
 @section('content')
-<div class="max-w-7xl mx-auto text-indigo-600 rounded-2xl p-4 overflow-hidden items-center">
-    @auth
-        @if($isEnrolled)
-            @php
-                $mainContent = $contents->first();
-            @endphp
+<div class="bg-light pt-3 pb-5 px-3 px-sm-0 col-12">
+    <div class="container d-flex flex-wrap justify-content-center px-0">
+        @auth
+            @if($isEnrolled)
+                @php
+                    $mainContent = $contents->first();
+                @endphp
 
-            <!-- Header & Video/PDF -->
-            <div class="p-8 pb-4">
-                <h1 class="text-2xl md:text-3xl font-bold mb-6">{{ $course->title }}</h1>
-
-                <!-- Tampilkan video atau PDF -->
-                @if($mainContent && $mainContent->content_type === 'video')
-                    <div class="mt-6">
-                        <h2 class="text-lg font-bold mb-2">Materi</h2>
-
-                        @if(Str::startsWith($mainContent->content, 'http'))
-                            <!-- Embed YouTube -->
-            <div class="w-full md:w-3/4 mx-auto mt-3 mb-6 aspect-video">
-                <iframe class="w-full h-full rounded-xl"
-                src="https://www.youtube.com/embed/{{ Str::after($mainContent->content, 'v=') }}"
-                frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowfullscreen></iframe>
-            </div>
-                        @else
-                            <!-- Play Uploaded Video -->
-                            <video controls class="w-full rounded">
-                                <source src="{{ asset('storage/' . $mainContent->content) }}" type="video/mp4">
-                                Browser kamu tidak mendukung pemutar video.
-                            </video>
-                        @endif
-                    </div>
-                @elseif($mainContent && $mainContent->content_type === 'pdf')
-                    <div class="rounded-xl overflow-hidden mb-6 bg-gray-800">
-                        <iframe src="{{ Storage::url($mainContent->content) }}" class="w-full h-[400px] md:h-[600px] rounded" frameborder="0"></iframe>
-                    </div>
-                @endif
-
-                <!-- Instructors -->
-                <div class="flex items-center gap-4 mb-8">
-                    <div class="w-12 h-12 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xl font-bold">
-                        {{ strtoupper(substr($course->creator->name, 0, 1)) }}
-                    </div>
-                    <div>
-                        <div class="text-xs text-gray-500">Instructor / Creator</div>
-                        <div class="font-semibold text-gray-900">{{ $course->creator->name }}</div>
-                        <div class="text-sm text-gray-600">{{ $course->creator->email }}</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Tabs -->
-            <div class="bg-white px-8 pt-4 rounded-b-2xl shadow-inner">
-                <div class="flex border-b border-gray-200 mb-4">
-                    <button id="tab-overview"
-                            class="py-2 px-4 font-semibold border-b-2 transition-colors duration-200 border-indigo-600 text-indigo-600"
-                            onclick="showTab('overview')">
-                        Overview
-                    </button>
-                    <button id="tab-comments"
-                            class="py-2 px-4 font-semibold border-b-2 border-transparent text-gray-500 hover:text-indigo-600 transition"
-                            onclick="showTab('comments')">
-                        Comments
-                    </button>
-                </div>
-
-                <!-- Overview Tab -->
-                <div id="overview-tab" class="block text-gray-700">
-                    <div class="mb-6 leading-relaxed">
-                        <div class="mb-2">{{ $course->description }}</div>
-                        @if($mainContent && $mainContent->content_type === 'pdf')
-                            <div class="text-sm text-gray-500">Scroll pada area di atas untuk membaca materi PDF.</div>
-                        @endif
-                    </div>
-
-                    <!-- Download PDF -->
-                    @if($mainContent && $mainContent->content_type === 'pdf')
-                        <div class="mt-8">
-                            <div class="font-semibold text-gray-800 mb-2">Download materials</div>
-                            <a href="{{ Storage::url($mainContent->content) }}" download
-                               class="inline-flex items-center bg-indigo-100 hover:bg-indigo-200 text-indigo-800 px-4 py-2 rounded transition">
-                                <svg class="w-5 h-5 mr-2 text-indigo-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5 5-5M12 4v12"/>
-                                </svg>
-                                Lesson presentation
-                            </a>
-                        </div>
-                    @endif
-                </div>
-
-                <!-- Comments Tab -->
-                <div id="comments-tab" class="hidden text-gray-700">
-                    <div class="mt-4">
-                        <form action="{{ route('comments.store', $course) }}" method="POST" class="mb-6">
-                            @csrf
-                            <textarea name="content"
-                                      class="w-full p-3 border border-gray-300 rounded-lg focus:ring focus:ring-indigo-200"
-                                      rows="3" placeholder="Tulis komentar..." required></textarea>
-                            <button type="submit"
-                                    class="mt-2 bg-indigo-600 text-white px-6 py-2 rounded hover:bg-indigo-700 transition">
-                                Kirim Komentar
-                            </button>
-                        </form>
-                        <div class="space-y-4">
-                            @forelse($course->comments as $comment)
-                                @include('comments.reply', ['comment' => $comment, 'depth' => 0])
-                            @empty
-                                <p class="text-gray-500">Belum ada komentar.</p>
-                            @endforelse
+                <!-- Course Video/Content Section -->
+                <div class="col-12 col-lg-8 mb-4 mb-lg-0">
+                    <div class="card border-0" style="border-radius: 15px;">
+                        <div class="card-body p-0">
+                            @if($mainContent && $mainContent->content_type === 'video')
+                                <div class="position-relative">
+                                    @if(Str::startsWith($mainContent->content, 'http'))
+                                        <!-- Embed YouTube -->
+                                        <div class="ratio ratio-16x9">
+                                            <iframe src="https://www.youtube.com/embed/{{ Str::after($mainContent->content, 'v=') }}"
+                                                    frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                                                    allowfullscreen style="border-radius: 15px 15px 0 0;"></iframe>
+                                        </div>
+                                    @else
+                                        <!-- Play Uploaded Video -->
+                                        <video controls class="w-100" style="border-radius: 15px 15px 0 0;">
+                                            <source src="{{ asset('storage/' . $mainContent->content) }}" type="video/mp4">
+                                            Browser kamu tidak mendukung pemutar video.
+                                        </video>
+                                    @endif
+                                </div>
+                            @elseif($mainContent && $mainContent->content_type === 'pdf')
+                                <div class="ratio ratio-16x9" style="border-radius: 15px 15px 0 0; overflow: hidden;">
+                                    <iframe src="{{ Storage::url($mainContent->content) }}" class="w-100 h-100" frameborder="0"></iframe>
+                                </div>
+                            @else
+                                <div class="d-flex align-items-center justify-content-center" style="height: 400px; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px 15px 0 0;">
+                                    <div class="text-center text-white">
+                                        <i class="fas fa-play-circle" style="font-size: 4rem; margin-bottom: 1rem;"></i>
+                                        <h4>Course Content</h4>
+                                        <p>Content will be available here</p>
+                                    </div>
+                                </div>
+                            @endif
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <script>
-                function showTab(tab) {
-                    const tabs = ['overview', 'comments'];
-                    tabs.forEach(id => {
-                        document.getElementById(`${id}-tab`).style.display = (id === tab) ? 'block' : 'none';
-                        document.getElementById(`tab-${id}`).classList.toggle('border-indigo-600', id === tab);
-                        document.getElementById(`tab-${id}`).classList.toggle('text-indigo-600', id === tab);
-                        document.getElementById(`tab-${id}`).classList.toggle('border-transparent', id !== tab);
-                        document.getElementById(`tab-${id}`).classList.toggle('text-gray-500', id !== tab);
-                    });
-                }
-            </script>
+                <!-- Course Info Sidebar -->
+                <div class="col-12 col-lg-4 px-3">
+                    <div class="card border-0" style="border-radius: 15px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                        <div class="card-body">
+                            <h5 class="card-title mb-3">{{ $course->title }}</h5>
+                            
+                            <!-- Course Progress -->
+                            <div class="mb-4">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <span class="text-muted">Progress</span>
+                                    <span class="text-primary">0%</span>
+                                </div>
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar bg-primary" role="progressbar" style="width: 0%"></div>
+                                </div>
+                            </div>
+
+                            <!-- Course Content List -->
+                            <div class="mb-4">
+                                <h6 class="mb-3">Course Content</h6>
+                                <ul class="list-group list-group-flush">
+                                    @foreach($contents as $index => $content)
+                                        <li class="list-group-item bg-transparent px-0 py-2 border-0">
+                                            <a href="#" class="row justify-content-start text-decoration-none align-items-center">
+                                                <div class="col-auto">
+                                                    <strong class="fs-4 mb-0" style="color: #9c9c9c;">{{ str_pad($index + 1, 2, '0', STR_PAD_LEFT) }}</strong>
+                                                </div>
+                                                <div class="col">
+                                                    <p class="mb-0" style="font-size: .9rem;">
+                                                        {{ $content->title ?? 'Lesson ' . ($index + 1) }}
+                                                    </p>
+                                                    <small class="text-muted">{{ $content->content_type ?? 'Content' }}</small>
+                                                </div>
+                                                <div class="col-auto">
+                                                    <i class="fas fa-play-circle text-primary"></i>
+                                                </div>
+                                            </a>
+                                        </li>
+                                    @endforeach
+                                </ul>
+                            </div>
+
+                            <!-- Instructor Info -->
+                            <div class="border-top pt-3">
+                                <h6 class="mb-3">Instructor</h6>
+                                <div class="d-flex align-items-center">
+                                    <div class="w-12 h-12 rounded-full bg-primary text-white d-flex align-items-center justify-content-center me-3" style="width: 48px; height: 48px;">
+                                        {{ strtoupper(substr($course->creator->name, 0, 1)) }}
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold">{{ $course->creator->name }}</div>
+                                        <small class="text-muted">{{ $course->creator->email }}</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Course Details Tabs -->
+                <div class="col-12 mt-4">
+                    <div class="card border-0" style="border-radius: 15px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                        <div class="card-body">
+                            <ul class="nav nav-tabs border-0" id="courseTabs" role="tablist">
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link active" id="overview-tab" data-bs-toggle="tab" data-bs-target="#overview" type="button" role="tab">
+                                        Overview
+                                    </button>
+                                </li>
+                                <li class="nav-item" role="presentation">
+                                    <button class="nav-link" id="comments-tab" data-bs-toggle="tab" data-bs-target="#comments" type="button" role="tab">
+                                        Comments
+                                    </button>
+                                </li>
+                            </ul>
+                            
+                            <div class="tab-content mt-4" id="courseTabsContent">
+                                <!-- Overview Tab -->
+                                <div class="tab-pane fade show active" id="overview" role="tabpanel">
+                                    <div class="mb-4">
+                                        <h5>Course Description</h5>
+                                        <p class="text-muted">{{ $course->description }}</p>
+                                    </div>
+                                    
+                                    @if($mainContent && $mainContent->content_type === 'pdf')
+                                        <div class="mb-4">
+                                            <h5>Download Materials</h5>
+                                            <a href="{{ Storage::url($mainContent->content) }}" download class="btn btn-outline-primary">
+                                                <i class="fas fa-download me-2"></i>
+                                                Download PDF
+                                            </a>
+                                        </div>
+                                    @endif
+                                </div>
+                                
+                                <!-- Comments Tab -->
+                                <div class="tab-pane fade" id="comments" role="tabpanel">
+                                    <div class="mb-4">
+                                        <h5>Add Comment</h5>
+                                        <form action="{{ route('comments.store', $course) }}" method="POST">
+                                            @csrf
+                                            <div class="mb-3">
+                                                <textarea name="content" class="form-control" rows="3" placeholder="Share your thoughts..." required></textarea>
+                                            </div>
+                                            <button type="submit" class="btn btn-primary">
+                                                Post Comment
+                                            </button>
+                                        </form>
+                                    </div>
+                                    
+                                    <div class="comments-section">
+                                        <h5>Comments</h5>
+                                        @forelse($course->comments as $comment)
+                                            @include('comments.reply', ['comment' => $comment, 'depth' => 0])
+                                        @empty
+                                            <p class="text-muted">No comments yet. Be the first to comment!</p>
+                                        @endforelse
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+            @else
+                <!-- Not Enrolled -->
+                <div class="col-12">
+                    <div class="card border-0 text-center" style="border-radius: 15px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                        <div class="card-body py-5">
+                            <i class="fas fa-lock text-muted mb-3" style="font-size: 3rem;"></i>
+                            <h4 class="mb-3">Course Locked</h4>
+                            <p class="text-muted mb-4">You need to enroll in this course to access the content.</p>
+                            <form action="{{ route('courses.enroll', $course) }}" method="POST">
+                                @csrf
+                                <button type="submit" class="btn btn-primary btn-lg">
+                                    <i class="fas fa-graduation-cap me-2"></i>
+                                    Enroll Now
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            @endif
         @else
-            <!-- Not Enrolled -->
-            <div class="p-8 text-center">
-                <p class="text-indigo-300 text-lg font-semibold mb-4">Anda belum terdaftar di kursus ini.</p>
-                <form action="{{ route('courses.enroll', $course) }}" method="POST">
-                    @csrf
-                    <button type="submit" class="inline-block bg-gray-600 text-white px-6 py-2 rounded-lg font-semibold shadow hover:bg-indigo-700 transition">
-                        Ikuti Kursus
-                    </button>
-                </form>
+            <!-- Not Logged In -->
+            <div class="col-12">
+                <div class="card border-0 text-center" style="border-radius: 15px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                    <div class="card-body py-5">
+                        <i class="fas fa-user-lock text-muted mb-3" style="font-size: 3rem;"></i>
+                        <h4 class="mb-3">Login Required</h4>
+                        <p class="text-muted mb-4">Please login to view course content and enroll in courses.</p>
+                        <a href="{{ route('login') }}" class="btn btn-primary btn-lg">
+                            <i class="fas fa-sign-in-alt me-2"></i>
+                            Login
+                        </a>
+                    </div>
+                </div>
             </div>
-        @endif
-    @else
-        <!-- Not Logged In -->
-        <div class="p-8 text-center">
-            <p class="text-red-400 text-lg font-semibold mb-4">Silakan login untuk melihat materi kursus dan berdiskusi.</p>
-            <a href="{{ route('login') }}" class="inline-block bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold shadow hover:bg-indigo-700 transition">Login</a>
-        </div>
-    @endauth
+        @endauth
+    </div>
 </div>
 @endsection
