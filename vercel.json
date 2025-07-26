@@ -60,7 +60,7 @@
         "DB_PASSWORD": "9d565d8f12379be74fcd3cadc8ae1ba11aafb179",
         "DB_SCHEMA": "laravel",
         "SUPABASE_URL": "https://mgwprxsapjupfsckkqgo.supabase.co",
-        "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1nd3ByeHNhcGp1cGZzY2trcWdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTMxODk3MDUsImV4cCI6MjA2ODc2NTcwNX0.KuHL86OimKtPS7QnqHbusr9IStrJsmia1aZW1S2vLrM"
+        "SUPABASE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1nd3ByeHNhcGp1cGZzY2trcWdvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1MzE4OTcwNSwiZXhwIjoyMDY4NzY1NzA1fQ.qlgD0txaeUwSmopCZyHFYGK9KKuuvQLuHAvZ_qC6eHE"
     },
     "outputDirectory": "public"
 }
