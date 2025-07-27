@@ -227,16 +227,19 @@ class CourseController extends Controller
         return view('courses.my_submissions', compact('courses'));
     }
 
-    public function enroll(Request $request, Course $course)
+public function enroll(Request $request, Course $course)
     {
         $user = auth()->user();
 
-        if (!$user->enrolledCourses()->where('course_id', $course->id)->exists()) {
-            $user->enrolledCourses()->attach($course->id, [
-                'enrolled_at' => now()
-            ]);
+        if (!$user) {
+            return redirect()->route('login')->with('error', 'Please log in to enroll.');
         }
 
-        return redirect()->route('courses.show', $course)->with('success', 'Berhasil mendaftar ke kursus!');
+        if (!$user->enrolledCourses()->where('course_id', $course->id)->exists()) {
+            $user->enrolledCourses()->attach($course->id);
+            return redirect()->back()->with('success', 'Successfully enrolled in the course.');
+        }
+
+        return redirect()->back()->with('info', 'You are already enrolled in this course.');
     }
 }
