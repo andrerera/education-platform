@@ -293,25 +293,25 @@ class CourseController extends Controller
         return view('courses.my_submissions', compact('courses'));
     }
 
-    public function enroll(Request $request, Course $course)
-    {
-        $user = auth()->user();
+public function enroll(Request $request, Course $course)
+{
+    $user = auth()->user();
 
-        if (!$user) {
-            return redirect()->route('login')->with('error', 'Please log in to enroll.');
-        }
-
-        if ($course->status !== 'approved') {
-            return redirect()->back()->with('error', 'This course is not available for enrollment.');
-        }
-
-        if (!$user->enrolledCourses()->where('course_id', $course->id)->exists()) {
-            $user->enrolledCourses()->attach($course->id, ['enrolled_at' => now()]);
-            return redirect()->back()->with('success', 'Successfully enrolled in the course.');
-        }
-
-        return redirect()->back()->with('info', 'You are already enrolled in this course.');
+    if (!$user) {
+        return redirect()->route('login')->with('error', 'Please log in to enroll.');
     }
+
+    if ($course->status !== 'approved') {
+        return redirect()->back()->with('error', 'This course is not available for enrollment.');
+    }
+
+    if (!$user->enrolledCourses()->where('course_id', $course->id)->exists()) {
+        $user->enrolledCourses()->attach($course->id); // Removed 'enrolled_at' => now()
+        return redirect()->back()->with('success', 'Successfully enrolled in the course.');
+    }
+
+    return redirect()->back()->with('info', 'You are already enrolled in this course.');
+}
 
     /**
      * Get file size limits for frontend reference
