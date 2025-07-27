@@ -42,160 +42,91 @@ class CourseController extends Controller
     {
         return view('courses.create');
     }
-
     /**
-     * Store course with improved video URL handling
+     * Sanitize string to ensure valid UTF-8
      */
-    public function store(Request $request)
-{
-    Log::info('Course store started', [
-        'user_id' => auth()->id(),
-        'input' => $request->except(['_token', 'video_file', 'audio_file', 'pdf_file', 'thumbnail']),
-        'files' => array_keys($request->allFiles())
-    ]);
-
-    // Dynamic validation based on content type and video option
-    $rules = [
-        'title' => 'required|string|max:255',
-        'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-        'content_type' => 'required|in:article,video,audio,pdf',
-    ];
-
-    // Add conditional validation rules
-    switch ($request->content_type) {
-        case 'article':
-            $rules['description'] = 'required|string|max:10000';
-            break;
-        case 'video':
-            $rules['video_option'] = 'required|in:upload,url';
-            if ($request->video_option === 'upload') {
-                $rules['video_file'] = 'required|file|mimes:mp4,avi,mov,wmv,flv,webm|max:4096';
-            } else {
-                $rules['video_url'] = 'required|url|max:500';
-            }
-            break;
-        case 'audio':
-            $rules['audio_file'] = 'required|file|mimes:mp3,wav,m4a|max:4096';
-            break;
-        case 'pdf':
-            $rules['pdf_file'] = 'required|file|mimes:pdf|max:4096';
-            break;
-    }
-
-    try {
-        $validated = $request->validate($rules);
-        Log::info('Validation passed', ['validated' => $validated]);
-    } catch (\Illuminate\Validation\ValidationException $e) {
-        Log::error('Validation failed', ['errors' => $e->errors()]);
-        return back()->withInput()->withErrors($e->errors());
-    }
-
-    // Additional file size check for video uploads
-    if ($request->content_type === 'video' && $request->video_option === 'upload' && $request->hasFile('video_file')) {
-        $videoSize = $request->file('video_file')->getSize();
-        Log::info('Video file size', ['size' => $videoSize]);
-        if ($videoSize > 4 * 1024 * 1024) {
-            Log::error('Video file too large', ['size' => $videoSize]);
-            return back()->withErrors(['video_file' => 'Video file too large for direct upload. Please use video URL option or reduce file size.']);
-        }
-    }
-
-    try {
-        // Upload thumbnail to Supabase (optional)
-        $thumbnailPath = '-';
-        if ($request->hasFile('thumbnail') && $request->file('thumbnail')->isValid()) {
-            Log::info('Uploading thumbnail');
-            $thumbnailPath = SupabaseUploader::upload($request->file('thumbnail'), 'thumbnail');
-            Log::info('Thumbnail uploaded', ['path' => $thumbnailPath]);
-        }
-
-        // Create Course
-        $course = Course::create([
-            'title' => $request->title,
-            'description' => $request->description ?? '-',
-            'thumbnail' => $thumbnailPath,
-            'status' => 'pending',
-            'user_id' => auth()->id(),
-        ]);
-        Log::info('Course created', ['course_id' => $course->id]);
-
-        // Handle Course Content
-        $contentData = $this->handleContentUpload($request);
-        Log::info('Content data processed', ['content_data' => $contentData]);
-
-        // Save content if exists
-        if ($contentData) {
-            CourseContent::create([
-                'course_id' => $course->id,
-                'content_type' => $request->content_type,
-                'content' => $contentData['content'],
-                'content_metadata' => $contentData['metadata'] ?? null,
-                'order' => 1,
-            ]);
-            Log::info('Course content created', ['course_id' => $course->id]);
-
-            // Create video link reference if it's a URL
-            if ($request->content_type === 'video' && $request->video_option === 'url') {
-                $this->createVideoLinkReference($request->video_url, $course->title, $course->id);
-                Log::info('Video link reference created');
-            }
-        }
-
-        return redirect()->route('home')->with('success', 'Submit mu sedang direview');
-    } catch (\Exception $e) {
-        Log::error('Course creation failed', [
-            'error' => $e->getMessage(),
-            'trace' => $e->getTraceAsString(),
-            'user_id' => auth()->id(),
-            'request_data' => $request->except(['_token', 'video_file', 'audio_file', 'pdf_file', 'thumbnail'])
-        ]);
-        return back()->withInput()->with('error', 'Failed to create course: ' . $e->getMessage());
-    }
-}
-
-    /**
-     * Store course with pre-uploaded file paths (for large files)
-     */
-    public function storeWithPaths(Request $request)
+    private function sanitizeUtf8($string)
     {
+        if (!is_string($string)) {
+            return $string;
+        }
+        // Convert to UTF-8, removing or replacing invalid characters
+        return mb_convert_encoding($string, 'UTF-8', 'UTF-8');
+    }
+
+    public function store(Request $request)
+    {
+        Log::info('Course store started', [
+            'user_id' => auth()->id(),
+            'input' => $request->except(['_token', 'video_file', 'audio_file', 'pdf_file', 'thumbnail']),
+            'files' => array_keys($request->allFiles())
+        ]);
+
+        // Sanitize string inputs
+        $request->merge([
+            'title' => $this->sanitizeUtf8($request->title),
+            'description' => $this->sanitizeUtf8($request->description),
+            'video_url' => $this->sanitizeUtf8($request->video_url),
+        ]);
+
+        // Dynamic validation
         $rules = [
             'title' => 'required|string|max:255',
-            'description' => 'nullable|string|max:10000',
+            'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'content_type' => 'required|in:article,video,audio,pdf',
-            'thumbnail' => 'nullable|string|max:500', // Path dari direct upload
         ];
 
-        // Add conditional validation for pre-uploaded paths
         switch ($request->content_type) {
+            case 'article':
+                $rules['description'] = 'required|string|max:10000';
+                break;
             case 'video':
-                $rules['video_option'] = 'nullable|in:upload,url';
-                $rules['video_url'] = 'nullable|url|max:500';
-                $rules['video_file'] = 'nullable|string|max:500'; // Path dari direct upload
+                $rules['video_option'] = 'required|in:upload,url';
+                if ($request->video_option === 'upload') {
+                    $rules['video_file'] = 'required|file|mimes:mp4,avi,mov,wmv,flv,webm|max:4096';
+                } else {
+                    $rules['video_url'] = 'required|url|max:500';
+                }
                 break;
             case 'audio':
-                $rules['audio_file'] = 'nullable|string|max:500';
+                $rules['audio_file'] = 'required|file|mimes:mp3,wav,m4a|max:4096';
                 break;
             case 'pdf':
-                $rules['pdf_file'] = 'nullable|string|max:500';
+                $rules['pdf_file'] = 'required|file|mimes:pdf|max:4096';
                 break;
         }
 
-        $request->validate($rules);
+        try {
+            $validated = $request->validate($rules);
+            Log::info('Validation passed', ['validated' => $validated]);
+        } catch (\Illuminate\Validation\ValidationException $e) {
+            Log::error('Validation failed', ['errors' => $e->errors()]);
+            return back()->withInput()->withErrors($e->errors());
+        }
 
         try {
+            // Upload thumbnail
+            $thumbnailPath = '-';
+            if ($request->hasFile('thumbnail') && $request->file('thumbnail')->isValid()) {
+                Log::info('Uploading thumbnail');
+                $thumbnailPath = SupabaseUploader::upload($request->file('thumbnail'), 'thumbnail');
+                Log::info('Thumbnail uploaded', ['path' => $thumbnailPath]);
+            }
+
             // Create Course
             $course = Course::create([
-                'title' => $request->title,
-                'description' => $request->description ?? '-',
-                'thumbnail' => $request->thumbnail ?? '-',
+                'title' => $validated['title'],
+                'description' => $validated['description'] ?? '-',
+                'thumbnail' => $thumbnailPath,
                 'status' => 'pending',
                 'user_id' => auth()->id(),
             ]);
+            Log::info('Course created', ['course_id' => $course->id]);
 
-            // Handle Course Content with paths
-            $contentData = $this->handleContentWithPaths($request);
+            // Handle Course Content
+            $contentData = $this->handleContentUpload($request);
+            Log::info('Content data processed', ['content_data' => $contentData]);
 
-            // Save content if exists
             if ($contentData) {
                 CourseContent::create([
                     'course_id' => $course->id,
@@ -204,131 +135,76 @@ class CourseController extends Controller
                     'content_metadata' => $contentData['metadata'] ?? null,
                     'order' => 1,
                 ]);
+                Log::info('Course content created', ['course_id' => $course->id]);
 
-                // Create video link reference if it's a URL
                 if ($request->content_type === 'video' && $request->video_option === 'url') {
                     $this->createVideoLinkReference($request->video_url, $course->title, $course->id);
+                    Log::info('Video link reference created');
                 }
             }
 
-            return response()->json([
-                'success' => true, 
-                'message' => 'Course created successfully',
-                'course_id' => $course->id
-            ]);
-            
+            return redirect()->route('home')->with('success', 'Submit mu sedang direview');
         } catch (\Exception $e) {
-            Log::error('Course creation with paths failed: ' . $e->getMessage(), [
+            Log::error('Course creation failed', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString(),
                 'user_id' => auth()->id(),
-                'request_data' => $request->all()
+                'request_data' => $request->except(['_token', 'video_file', 'audio_file', 'pdf_file', 'thumbnail'])
             ]);
-            
-            return response()->json(['success' => false, 'message' => 'Failed to create course'], 500);
+            return back()->withInput()->with('error', 'Failed to create course: ' . $e->getMessage());
         }
     }
 
-    /**
-     * Handle content upload with file paths (for direct upload)
-     */
-    private function handleContentWithPaths(Request $request)
-    {
-        switch ($request->content_type) {
-            case 'article':
-                return ['content' => $request->description];
-
-            case 'video':
-                if ($request->video_option === 'upload' && $request->video_file) {
-                    return [
-                        'content' => $request->video_file,
-                        'metadata' => json_encode([
-                            'type' => 'upload',
-                            'source' => 'direct_upload'
-                        ])
-                    ];
-                } elseif ($request->video_option === 'url' && $request->video_url) {
-                    $urlInfo = $this->getVideoUrlInfo($request->video_url);
-                    return [
-                        'content' => $request->video_url,
-                        'metadata' => json_encode(array_merge($urlInfo, ['type' => 'url']))
-                    ];
-                }
-                break;
-
-            case 'audio':
-                if ($request->audio_file) {
-                    return [
-                        'content' => $request->audio_file,
-                        'metadata' => json_encode(['type' => 'upload'])
-                    ];
-                }
-                break;
-
-            case 'pdf':
-                if ($request->pdf_file) {
-                    return [
-                        'content' => $request->pdf_file,
-                        'metadata' => json_encode(['type' => 'upload'])
-                    ];
-                }
-                break;
-        }
-
-        return null;
-    }
-
-    /**
-     * Handle content upload with actual files (traditional way)
-     */
     private function handleContentUpload(Request $request)
     {
         switch ($request->content_type) {
             case 'article':
-                return ['content' => $request->description];
+                return ['content' => $this->sanitizeUtf8($request->description)];
 
             case 'video':
-                if ($request->video_option === 'upload' && $request->hasFile('video_file')) {
+                if ($request->video_option === 'upload' && $request->hasFile('video_file') && $request->file('video_file')->isValid()) {
                     $uploadedPath = SupabaseUploader::upload($request->file('video_file'), 'video');
                     return [
                         'content' => $uploadedPath,
                         'metadata' => json_encode([
                             'type' => 'upload',
-                            'original_name' => $request->file('video_file')->getClientOriginalName(),
+                            'original_name' => $this->sanitizeUtf8($request->file('video_file')->getClientOriginalName()),
                             'size' => $request->file('video_file')->getSize()
-                        ])
+                        ], JSON_THROW_ON_ERROR)
                     ];
                 } elseif ($request->video_option === 'url' && $request->video_url) {
                     $urlInfo = $this->getVideoUrlInfo($request->video_url);
                     return [
                         'content' => $request->video_url,
-                        'metadata' => json_encode(array_merge($urlInfo, ['type' => 'url']))
+                        'metadata' => json_encode(array_merge($urlInfo, ['type' => 'url']), JSON_THROW_ON_ERROR)
                     ];
                 }
                 break;
 
             case 'audio':
-                if ($request->hasFile('audio_file')) {
+                if ($request->hasFile('audio_file') && $request->file('audio_file')->isValid()) {
                     $uploadedPath = SupabaseUploader::upload($request->file('audio_file'), 'audio');
                     return [
                         'content' => $uploadedPath,
                         'metadata' => json_encode([
                             'type' => 'upload',
-                            'original_name' => $request->file('audio_file')->getClientOriginalName(),
+                            'original_name' => $this->sanitizeUtf8($request->file('audio_file')->getClientOriginalName()),
                             'size' => $request->file('audio_file')->getSize()
-                        ])
+                        ], JSON_THROW_ON_ERROR)
                     ];
                 }
                 break;
 
             case 'pdf':
-                if ($request->hasFile('pdf_file')) {
+                if ($request->hasFile('pdf_file') && $request->file('pdf_file')->isValid()) {
                     $uploadedPath = SupabaseUploader::upload($request->file('pdf_file'), 'pdf');
                     return [
                         'content' => $uploadedPath,
                         'metadata' => json_encode([
                             'type' => 'upload',
-                            'original_name' => $request->file('pdf_file')->getClientOriginalName(),
+                            'original_name' => $this->sanitizeUtf8($request->file('pdf_file')->getClientOriginalName()),
                             'size' => $request->file('pdf_file')->getSize()
-                        ])
+                        ], JSON_THROW_ON_ERROR)
                     ];
                 }
                 break;
@@ -337,11 +213,40 @@ class CourseController extends Controller
         return null;
     }
 
-    /**
-     * Extract video URL information
-     */
+    private function createVideoLinkReference($url, $title, $courseId)
+    {
+        try {
+            $linkData = [
+                'course_id' => $courseId,
+                'title' => $this->sanitizeUtf8($title),
+                'url' => $this->sanitizeUtf8($url),
+                'url_info' => $this->getVideoUrlInfo($url),
+                'created_at' => now()->toDateTimeString(),
+                'type' => 'video_link'
+            ];
+
+            $filename = 'video_link_' . $courseId . '_' . time() . '.json';
+            $content = json_encode($linkData, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR);
+            
+            try {
+                $path = SupabaseUploader::uploadText($content, 'video/links/' . $filename);
+                Log::info('Video link reference created in Supabase', ['path' => $path]);
+            } catch (\Exception $e) {
+                Storage::disk('public')->put('edufiles/video/link/' . $filename, $content);
+                Log::info('Video link reference created locally', ['filename' => $filename]);
+            }
+        } catch (\Exception $e) {
+            Log::warning('Failed to create video link reference: ' . $e->getMessage(), [
+                'course_id' => $courseId,
+                'url' => $url
+            ]);
+            throw $e;
+        }
+    }
+
     private function getVideoUrlInfo($url)
     {
+        $url = $this->sanitizeUtf8($url);
         $info = [
             'original_url' => $url,
             'platform' => 'unknown',
@@ -349,74 +254,27 @@ class CourseController extends Controller
             'processed_at' => now()->toDateTimeString()
         ];
 
-        // Clean URL
-        $url = trim($url);
-
-        // YouTube validation
         if (strpos($url, 'youtube.com/watch') !== false || strpos($url, 'youtu.be/') !== false) {
             $info['platform'] = 'youtube';
-            
             if (strpos($url, 'youtube.com/watch') !== false) {
                 parse_str(parse_url($url, PHP_URL_QUERY), $query);
                 $info['video_id'] = $query['v'] ?? null;
             } else {
-                // youtu.be format
                 $info['video_id'] = substr(parse_url($url, PHP_URL_PATH), 1);
             }
-            
         } elseif (strpos($url, 'vimeo.com/') !== false) {
             $info['platform'] = 'vimeo';
             $path = parse_url($url, PHP_URL_PATH);
             $info['video_id'] = trim($path, '/');
-            
         } elseif (strpos($url, 'dailymotion.com') !== false) {
             $info['platform'] = 'dailymotion';
-            
         } elseif (strpos($url, 'twitch.tv') !== false) {
             $info['platform'] = 'twitch';
-            
         } elseif (preg_match('/\.(mp4|webm|ogg|avi|mov|wmv|flv|mkv)(\?.*)?$/i', $url)) {
             $info['platform'] = 'direct_link';
         }
 
         return $info;
-    }
-
-    /**
-     * Create a reference file for video links in Supabase or local storage
-     */
-    private function createVideoLinkReference($url, $title, $courseId)
-    {
-        try {
-            $linkData = [
-                'course_id' => $courseId,
-                'title' => $title,
-                'url' => $url,
-                'url_info' => $this->getVideoUrlInfo($url),
-                'created_at' => now()->toDateTimeString(),
-                'type' => 'video_link'
-            ];
-
-            $filename = 'video_link_' . $courseId . '_' . time() . '.json';
-            $content = json_encode($linkData, JSON_PRETTY_PRINT);
-            
-            // Try to store in Supabase first, fallback to local
-            try {
-                // If you have a method to store JSON files in Supabase
-                $path = SupabaseUploader::uploadText($content, 'video/links/' . $filename);
-                Log::info('Video link reference created in Supabase', ['path' => $path]);
-            } catch (\Exception $e) {
-                // Fallback to local storage
-                Storage::disk('public')->put('edufiles/video/link/' . $filename, $content);
-                Log::info('Video link reference created locally', ['filename' => $filename]);
-            }
-            
-        } catch (\Exception $e) {
-            Log::warning('Failed to create video link reference: ' . $e->getMessage(), [
-                'course_id' => $courseId,
-                'url' => $url
-            ]);
-        }
     }
 
     public function mySubmissions()
