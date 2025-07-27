@@ -47,97 +47,111 @@ class CourseController extends Controller
      * Store course with improved video URL handling
      */
     public function store(Request $request)
-    {
-        // Dynamic validation based on content type and video option
-        $rules = [
-            'title' => 'required|string|max:255',
-            'thumbnail' => 'nullable|image|max:2048',
-            'content_type' => 'required|in:article,video,audio,pdf',
-        ];
+{
+    Log::info('Course store started', [
+        'user_id' => auth()->id(),
+        'input' => $request->except(['_token', 'video_file', 'audio_file', 'pdf_file', 'thumbnail']),
+        'files' => array_keys($request->allFiles())
+    ]);
 
-        // Add conditional validation rules
-        switch ($request->content_type) {
-            case 'article':
-                $rules['description'] = 'required|string|max:10000';
-                break;
-                
-            case 'video':
-                $rules['video_option'] = 'required|in:upload,url';
-                
-                if ($request->video_option === 'upload') {
-                    $rules['video_file'] = 'required|file|mimetypes:video/mp4,video/avi,video/mov,video/wmv,video/flv,video/webm|max:4096'; // 4MB for Vercel
-                } else {
-                    $rules['video_url'] = 'required|url|max:500';
-                }
-                break;
-                
-            case 'audio':
-                $rules['audio_file'] = 'required|file|mimes:mp3,wav,m4a|max:4096';
-                break;
-                
-            case 'pdf':
-                $rules['pdf_file'] = 'required|file|mimes:pdf|max:4096';
-                break;
-        }
+    // Dynamic validation based on content type and video option
+    $rules = [
+        'title' => 'required|string|max:255',
+        'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+        'content_type' => 'required|in:article,video,audio,pdf',
+    ];
 
-        $request->validate($rules);
-
-        // Additional file size check for video uploads
-        if ($request->content_type === 'video' && $request->video_option === 'upload') {
-            if ($request->hasFile('video_file')) {
-                $videoSize = $request->file('video_file')->getSize();
-                if ($videoSize > 4 * 1024 * 1024) { // 4MB limit for Vercel
-                    return back()->withErrors(['video_file' => 'Video file too large for direct upload. Please use video URL option or reduce file size.']);
-                }
+    // Add conditional validation rules
+    switch ($request->content_type) {
+        case 'article':
+            $rules['description'] = 'required|string|max:10000';
+            break;
+        case 'video':
+            $rules['video_option'] = 'required|in:upload,url';
+            if ($request->video_option === 'upload') {
+                $rules['video_file'] = 'required|file|mimes:mp4,avi,mov,wmv,flv,webm|max:4096';
+            } else {
+                $rules['video_url'] = 'required|url|max:500';
             }
-        }
+            break;
+        case 'audio':
+            $rules['audio_file'] = 'required|file|mimes:mp3,wav,m4a|max:4096';
+            break;
+        case 'pdf':
+            $rules['pdf_file'] = 'required|file|mimes:pdf|max:4096';
+            break;
+    }
 
-        try {
-            // Upload thumbnail to Supabase (optional)
-            $thumbnailPath = '-';
-            if ($request->hasFile('thumbnail')) {
-                $thumbnailPath = SupabaseUploader::upload($request->file('thumbnail'), 'thumbnail');
-            }
+    try {
+        $validated = $request->validate($rules);
+        Log::info('Validation passed', ['validated' => $validated]);
+    } catch (\Illuminate\Validation\ValidationException $e) {
+        Log::error('Validation failed', ['errors' => $e->errors()]);
+        return back()->withInput()->withErrors($e->errors());
+    }
 
-            // Create Course
-            $course = Course::create([
-                'title' => $request->title,
-                'description' => $request->description ?? '-',
-                'thumbnail' => $thumbnailPath,
-                'status' => 'pending',
-                'user_id' => auth()->id(),
-            ]);
-
-            // Handle Course Content
-            $contentData = $this->handleContentUpload($request);
-
-            // Save content if exists
-            if ($contentData) {
-                CourseContent::create([
-                    'course_id' => $course->id,
-                    'content_type' => $request->content_type,
-                    'content' => $contentData['content'],
-                    'content_metadata' => $contentData['metadata'] ?? null,
-                    'order' => 1,
-                ]);
-
-                // Create video link reference if it's a URL
-                if ($request->content_type === 'video' && $request->video_option === 'url') {
-                    $this->createVideoLinkReference($request->video_url, $course->title, $course->id);
-                }
-            }
-
-            return redirect()->route('home')->with('success', 'Course submitted for review successfully!');
-            
-        } catch (\Exception $e) {
-            Log::error('Course creation failed: ' . $e->getMessage(), [
-                'user_id' => auth()->id(),
-                'request_data' => $request->except(['_token', 'video_file', 'audio_file', 'pdf_file', 'thumbnail'])
-            ]);
-            
-            return back()->withInput()->withErrors(['error' => 'Failed to create course. Please try again.']);
+    // Additional file size check for video uploads
+    if ($request->content_type === 'video' && $request->video_option === 'upload' && $request->hasFile('video_file')) {
+        $videoSize = $request->file('video_file')->getSize();
+        Log::info('Video file size', ['size' => $videoSize]);
+        if ($videoSize > 4 * 1024 * 1024) {
+            Log::error('Video file too large', ['size' => $videoSize]);
+            return back()->withErrors(['video_file' => 'Video file too large for direct upload. Please use video URL option or reduce file size.']);
         }
     }
+
+    try {
+        // Upload thumbnail to Supabase (optional)
+        $thumbnailPath = '-';
+        if ($request->hasFile('thumbnail') && $request->file('thumbnail')->isValid()) {
+            Log::info('Uploading thumbnail');
+            $thumbnailPath = SupabaseUploader::upload($request->file('thumbnail'), 'thumbnail');
+            Log::info('Thumbnail uploaded', ['path' => $thumbnailPath]);
+        }
+
+        // Create Course
+        $course = Course::create([
+            'title' => $request->title,
+            'description' => $request->description ?? '-',
+            'thumbnail' => $thumbnailPath,
+            'status' => 'pending',
+            'user_id' => auth()->id(),
+        ]);
+        Log::info('Course created', ['course_id' => $course->id]);
+
+        // Handle Course Content
+        $contentData = $this->handleContentUpload($request);
+        Log::info('Content data processed', ['content_data' => $contentData]);
+
+        // Save content if exists
+        if ($contentData) {
+            CourseContent::create([
+                'course_id' => $course->id,
+                'content_type' => $request->content_type,
+                'content' => $contentData['content'],
+                'content_metadata' => $contentData['metadata'] ?? null,
+                'order' => 1,
+            ]);
+            Log::info('Course content created', ['course_id' => $course->id]);
+
+            // Create video link reference if it's a URL
+            if ($request->content_type === 'video' && $request->video_option === 'url') {
+                $this->createVideoLinkReference($request->video_url, $course->title, $course->id);
+                Log::info('Video link reference created');
+            }
+        }
+
+        return redirect()->route('home')->with('success', 'Submit mu sedang direview');
+    } catch (\Exception $e) {
+        Log::error('Course creation failed', [
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'user_id' => auth()->id(),
+            'request_data' => $request->except(['_token', 'video_file', 'audio_file', 'pdf_file', 'thumbnail'])
+        ]);
+        return back()->withInput()->with('error', 'Failed to create course: ' . $e->getMessage());
+    }
+}
 
     /**
      * Store course with pre-uploaded file paths (for large files)
