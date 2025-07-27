@@ -49,7 +49,7 @@ class CourseController extends Controller
             'content_type' => 'required|in:article,video,audio,pdf',
             'description' => 'nullable|string',
             'video_option' => 'nullable|in:upload,url',
-            'video_file' => 'nullable|file|mimetypes:video/*',
+            'video_file' => 'nullable|file|mimetypes:video/*|max:51200',
             'video_url' => 'nullable|url',
             'audio_file' => 'nullable|file|mimes:mp3',
             'pdf_file' => 'nullable|file|mimes:pdf',
