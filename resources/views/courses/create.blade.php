@@ -7,14 +7,18 @@
         <p class="text-gray-600 text-sm mt-2">Fill in the details below to add a new course for review.</p>
     </div>
 
-    @if (session('success'))
-        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg mb-6">
-            {{ session('success') }}
-        </div>
-    @endif
     @if (session('error'))
         <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6">
             {{ session('error') }}
+        </div>
+    @endif
+    @if ($errors->any())
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg mb-6">
+            <ul>
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
         </div>
     @endif
 
@@ -28,9 +32,6 @@
                 class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 p-3"
                 placeholder="e.g. Mastering Laravel for Beginners"
                 value="{{ old('title') }}">
-            @error('title')
-                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-            @enderror
         </div>
 
         <!-- Thumbnail -->
@@ -38,9 +39,6 @@
             <label for="thumbnail" class="block text-sm font-medium text-gray-700">Thumbnail (Optional)</label>
             <input type="file" name="thumbnail" id="thumbnail" accept="image/*"
                 class="mt-1 block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-            @error('thumbnail')
-                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-            @enderror
         </div>
 
         <!-- Content Type -->
@@ -54,9 +52,6 @@
                 <option value="audio" {{ old('content_type') == 'audio' ? 'selected' : '' }}>Audio Podcast</option>
                 <option value="pdf" {{ old('content_type') == 'pdf' ? 'selected' : '' }}>PDF</option>
             </select>
-            @error('content_type')
-                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-            @enderror
         </div>
 
         <!-- Description -->
@@ -65,9 +60,6 @@
             <textarea name="description" id="description" rows="5"
                 class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 p-3"
                 placeholder="Write your article content here...">{{ old('description') }}</textarea>
-            @error('description')
-                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-            @enderror
         </div>
 
         <!-- Video -->
@@ -89,17 +81,11 @@
                 <label for="video_file" class="block text-sm font-medium text-gray-700">Upload Video File</label>
                 <input type="file" name="video_file" id="video_file" accept="video/*"
                     class="mt-1 block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-                @error('video_file')
-                    <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                @enderror
             </div>
             <div id="video_url" class="hidden">
                 <label for="video_url_input" class="block text-sm font-medium text-gray-700">Video URL</label>
                 <input type="url" name="video_url" id="video_url_input" placeholder="https://youtube.com/..."
                     class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 p-3">
-                @error('video_url')
-                    <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-                @enderror
             </div>
         </div>
 
@@ -108,9 +94,6 @@
             <label for="audio_file" class="block text-sm font-medium text-gray-700">Upload Audio (.mp3)</label>
             <input type="file" name="audio_file" id="audio_file" accept="audio/mpeg"
                 class="mt-1 block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-            @error('audio_file')
-                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-            @enderror
         </div>
 
         <!-- PDF -->
@@ -118,9 +101,6 @@
             <label for="pdf_file" class="block text-sm font-medium text-gray-700">Upload PDF</label>
             <input type="file" name="pdf_file" id="pdf_file" accept="application/pdf"
                 class="mt-1 block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
-            @error('pdf_file')
-                <p class="text-red-500 text-sm mt-1">{{ $message }}</p>
-            @enderror
         </div>
 
         <!-- Actions -->
@@ -142,20 +122,48 @@ document.addEventListener('DOMContentLoaded', function () {
     const videoWrapper = document.getElementById('video_wrapper');
     const audioWrapper = document.getElementById('audio_wrapper');
     const pdfWrapper = document.getElementById('pdf_wrapper');
-    const videoUpload = document.getElementById('video_upload');
-    const videoURL = document.getElementById('video_url');
-    const videoRadios = document.querySelectorAll('input[name="video_option"]');
+    const videoUploadWrapper = document.getElementById('video_upload');
+    const videoUrlWrapper = document.getElementById('video_url');
+    const videoRadios = document.getElementsByName('video_option');
     const videoFileInput = document.getElementById('video_file');
     const videoUrlInput = document.getElementById('video_url_input');
 
-    // Show relevant content section based on content_type
+    // Initialize form state based on old input
+    if (contentType.value) {
+        updateContentVisibility(contentType.value);
+    }
+
+    // Handle content type change
     contentType.addEventListener('change', function () {
+        updateContentVisibility(this.value);
+    });
+
+    // Handle video option change
+    videoRadios.forEach(radio => {
+        radio.addEventListener('change', function () {
+            if (this.value === 'upload') {
+                videoUploadWrapper.classList.remove('hidden');
+                videoUrlWrapper.classList.add('hidden');
+                videoFileInput.name = 'video_file';
+                videoUrlInput.name = '';
+                videoUrlInput.value = '';
+            } else {
+                videoUploadWrapper.classList.add('hidden');
+                videoUrlWrapper.classList.remove('hidden');
+                videoFileInput.name = '';
+                videoFileInput.value = '';
+                videoUrlInput.name = 'video_url';
+            }
+        });
+    });
+
+    function updateContentVisibility(type) {
         descWrapper.classList.add('hidden');
         videoWrapper.classList.add('hidden');
         audioWrapper.classList.add('hidden');
         pdfWrapper.classList.add('hidden');
 
-        switch (this.value) {
+        switch (type) {
             case 'article':
                 descWrapper.classList.remove('hidden');
                 break;
@@ -169,26 +177,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 pdfWrapper.classList.remove('hidden');
                 break;
         }
-    });
-
-    // Toggle video upload/URL inputs
-    videoRadios.forEach(radio => {
-        radio.addEventListener('change', function () {
-            if (this.value === 'upload') {
-                videoUpload.classList.remove('hidden');
-                videoURL.classList.add('hidden');
-                videoFileInput.name = 'video_file';
-                videoUrlInput.name = '';
-                videoUrlInput.value = ''; // Clear URL input
-            } else {
-                videoUpload.classList.add('hidden');
-                videoURL.classList.remove('hidden');
-                videoFileInput.name = '';
-                videoFileInput.value = ''; // Clear file input
-                videoUrlInput.name = 'video_url';
-            }
-        });
-    });
+    }
 });
 </script>
 @endsection

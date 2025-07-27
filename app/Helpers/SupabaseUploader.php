@@ -1,41 +1,47 @@
 <?php
-
 namespace App\Helpers;
 
-use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Log;
 
 class SupabaseUploader
 {
-    private static $supabaseUrl;
-    private static $supabaseKey;
-    private static $bucketName;
+    protected static $supabaseUrl;
+    protected static $supabaseKey;
+    protected static $bucketName;
 
-    public static function init()
+    protected static function init()
     {
         self::$supabaseUrl = config('services.supabase.url');
-        self::$supabaseKey = config('services.supabase.service_role_key');
+        self::$supabaseKey = config('services.supabase.key');
         self::$bucketName = config('services.supabase.bucket', 'edufiles');
+        if (!self::$supabaseUrl || !self::$supabaseKey || !self::$bucketName) {
+            Log::error('Supabase configuration missing', [
+                'url' => self::$supabaseUrl,
+                'key' => substr(self::$supabaseKey, 0, 10) . '...',
+                'bucket' => self::$bucketName
+            ]);
+            throw new \Exception('Supabase configuration missing');
+        }
     }
 
-    /**
-     * Upload file to Supabase Storage
-     */
     public static function upload(UploadedFile $file, string $folder = 'general'): string
     {
         self::init();
-
         try {
-            // Generate unique filename
+            Log::info('Starting Supabase upload', [
+                'file' => $file->getClientOriginalName(),
+                'size' => $file->getSize(),
+                'mime' => $file->getMimeType(),
+                'folder' => $folder
+            ]);
+
             $extension = $file->getClientOriginalExtension();
             $filename = time() . '_' . uniqid() . '.' . $extension;
-            $path = $folder . '/' . $filename;
-
-            // Get file content
+            $path = rtrim($folder, '/') . '/' . $filename;
             $fileContent = file_get_contents($file->getRealPath());
-            
-            // Upload to Supabase
+
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . self::$supabaseKey,
                 'Content-Type' => $file->getMimeType(),
@@ -45,38 +51,32 @@ class SupabaseUploader
             );
 
             if ($response->successful()) {
-                // Return public URL
                 $publicUrl = self::$supabaseUrl . '/storage/v1/object/public/' . self::$bucketName . '/' . $path;
-                
-                Log::info('File uploaded to Supabase successfully', [
-                    'path' => $path,
-                    'size' => $file->getSize(),
-                    'type' => $file->getMimeType()
-                ]);
-                
+                Log::info('File uploaded to Supabase', ['path' => $path, 'url' => $publicUrl]);
                 return $publicUrl;
-            } else {
-                Log::error('Supabase upload failed', [
-                    'status' => $response->status(),
-                    'response' => $response->body()
-                ]);
-                throw new \Exception('Upload failed: ' . $response->body());
             }
 
+            Log::error('Supabase upload failed', [
+                'status' => $response->status(),
+                'response' => $response->body(),
+                'file' => $file->getClientOriginalName()
+            ]);
+            throw new \Exception('Upload failed: ' . $response->body());
         } catch (\Exception $e) {
-            Log::error('Supabase upload error: ' . $e->getMessage());
+            Log::error('Supabase upload error', [
+                'error' => $e->getMessage(),
+                'file' => $file->getClientOriginalName(),
+                'trace' => $e->getTraceAsString()
+            ]);
             throw $e;
         }
     }
 
-    /**
-     * Upload text content to Supabase Storage
-     */
     public static function uploadText(string $content, string $path, string $contentType = 'application/json'): string
     {
         self::init();
-
         try {
+            Log::info('Starting Supabase text upload', ['path' => $path, 'size' => strlen($content)]);
             $response = Http::withHeaders([
                 'Authorization' => 'Bearer ' . self::$supabaseKey,
                 'Content-Type' => $contentType,
@@ -87,76 +87,21 @@ class SupabaseUploader
 
             if ($response->successful()) {
                 $publicUrl = self::$supabaseUrl . '/storage/v1/object/public/' . self::$bucketName . '/' . $path;
-                
-                Log::info('Text content uploaded to Supabase successfully', [
-                    'path' => $path,
-                    'size' => strlen($content)
-                ]);
-                
+                Log::info('Text uploaded to Supabase', ['path' => $path, 'url' => $publicUrl]);
                 return $publicUrl;
-            } else {
-                throw new \Exception('Text upload failed: ' . $response->body());
             }
 
+            Log::error('Supabase text upload failed', [
+                'status' => $response->status(),
+                'body' => $response->body()
+            ]);
+            throw new \Exception('Text upload failed: ' . $response->body());
         } catch (\Exception $e) {
-            Log::error('Supabase text upload error: ' . $e->getMessage());
+            Log::error('Supabase text upload error', [
+                'error' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             throw $e;
         }
-    }
-
-    /**
-     * Delete file from Supabase Storage
-     */
-    public static function delete(string $path): bool
-    {
-        self::init();
-
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . self::$supabaseKey,
-            ])->delete(
-                self::$supabaseUrl . '/storage/v1/object/' . self::$bucketName . '/' . $path
-            );
-
-            return $response->successful();
-
-        } catch (\Exception $e) {
-            Log::error('Supabase delete error: ' . $e->getMessage());
-            return false;
-        }
-    }
-
-    /**
-     * Get file info from Supabase
-     */
-    public static function getFileInfo(string $path): ?array
-    {
-        self::init();
-
-        try {
-            $response = Http::withHeaders([
-                'Authorization' => 'Bearer ' . self::$supabaseKey,
-            ])->get(
-                self::$supabaseUrl . '/storage/v1/object/info/' . self::$bucketName . '/' . $path
-            );
-
-            if ($response->successful()) {
-                return $response->json();
-            }
-
-            return null;
-
-        } catch (\Exception $e) {
-            Log::error('Supabase get file info error: ' . $e->getMessage());
-            return null;
-        }
-    }
-
-    /**
-     * Check if file exists in Supabase
-     */
-    public static function exists(string $path): bool
-    {
-        return self::getFileInfo($path) !== null;
     }
 }
