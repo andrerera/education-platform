@@ -99,16 +99,6 @@
                     </div>
                 @endif
 
-                <!-- Course Thumbnail -->
-                @if($course->thumbnail && $course->thumbnail !== '-')
-                    <div class="mt-6 mb-6">
-                        <img src="{{ StorageUrl::getPublicUrl($course->thumbnail) }}" 
-                             alt="{{ $course->title }}" 
-                             class="w-full max-w-md mx-auto rounded-xl shadow-lg"
-                             loading="lazy">
-                    </div>
-                @endif
-
                 <!-- Instructors -->
                 <div class="flex items-center gap-4 mb-8">
                     <div class="w-12 h-12 rounded-full bg-indigo-600 text-white flex items-center justify-center text-xl font-bold">
