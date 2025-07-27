@@ -150,6 +150,7 @@
 </div>
 
 <!-- JavaScript: Dynamic Content Display & Upload Progress -->
+<!-- JavaScript: Dynamic Content Display & Upload Progress -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const contentType = document.getElementById('content_type');
@@ -157,11 +158,9 @@ document.addEventListener('DOMContentLoaded', function () {
     const videoWrapper = document.getElementById('video_wrapper');
     const audioWrapper = document.getElementById('audio_wrapper');
     const pdfWrapper = document.getElementById('pdf_wrapper');
-
     const videoUpload = document.getElementById('video_upload');
     const videoURL = document.getElementById('video_url');
     const videoRadios = document.querySelectorAll('input[name="video_option"]');
-
     const form = document.getElementById('courseForm');
     const loadingOverlay = document.getElementById('loadingOverlay');
     const submitBtn = document.getElementById('submitBtn');
@@ -169,12 +168,13 @@ document.addEventListener('DOMContentLoaded', function () {
     const submitLoading = document.getElementById('submitLoading');
     const progressBar = document.getElementById('progressBar');
     const progressText = document.getElementById('progressText');
-
-    // File input elements
     const thumbnailInput = document.getElementById('thumbnail');
     const videoFileInput = document.getElementById('video_file');
     const audioFileInput = document.getElementById('audio_file');
     const pdfFileInput = document.getElementById('pdf_file');
+    const videoUrlInput = document.getElementById('video_url_input');
+    const urlPreview = document.getElementById('urlPreview');
+    const detectedPlatform = document.getElementById('detectedPlatform');
 
     // Content type change handler
     contentType.addEventListener('change', function () {
@@ -182,7 +182,6 @@ document.addEventListener('DOMContentLoaded', function () {
         videoWrapper.classList.add('hidden');
         audioWrapper.classList.add('hidden');
         pdfWrapper.classList.add('hidden');
-
         switch (this.value) {
             case 'article':
                 descWrapper.classList.remove('hidden');
@@ -205,24 +204,20 @@ document.addEventListener('DOMContentLoaded', function () {
             if (this.value === 'upload') {
                 videoUpload.classList.remove('hidden');
                 videoURL.classList.add('hidden');
-                // Enable video file input
                 videoFileInput.disabled = false;
                 videoFileInput.name = 'video_file';
-                // Clear and disable video URL input
-                document.getElementById('video_url_input').value = '';
-                document.getElementById('video_url_input').disabled = true;
-                document.getElementById('video_url_input').name = '';
+                videoUrlInput.value = '';
+                videoUrlInput.disabled = true;
+                videoUrlInput.name = '';
+                document.getElementById('videoInfo').classList.add('hidden');
             } else {
                 videoUpload.classList.add('hidden');
                 videoURL.classList.remove('hidden');
-                // Enable video URL input
-                document.getElementById('video_url_input').disabled = false;
-                document.getElementById('video_url_input').name = 'video_url';
-                // Clear and disable video file input
+                videoUrlInput.disabled = false;
+                videoUrlInput.name = 'video_url';
                 videoFileInput.value = '';
                 videoFileInput.disabled = true;
                 videoFileInput.name = '';
-                // Hide file info
                 document.getElementById('videoInfo').classList.add('hidden');
             }
         });
@@ -255,7 +250,6 @@ document.addEventListener('DOMContentLoaded', function () {
         const file = this.files[0];
         const preview = document.getElementById('thumbnailPreview');
         const img = document.getElementById('thumbnailImg');
-        
         if (file) {
             const reader = new FileReader();
             reader.onload = function(e) {
@@ -274,10 +268,6 @@ document.addEventListener('DOMContentLoaded', function () {
     showFileInfo(pdfFileInput, document.getElementById('pdfName'), document.getElementById('pdfSize'), document.getElementById('pdfInfo'));
 
     // Video URL validation and preview
-    const videoUrlInput = document.getElementById('video_url_input');
-    const urlPreview = document.getElementById('urlPreview');
-    const detectedPlatform = document.getElementById('detectedPlatform');
-
     videoUrlInput.addEventListener('input', function() {
         const url = this.value.trim();
         if (url) {
@@ -290,28 +280,19 @@ document.addEventListener('DOMContentLoaded', function () {
     function validateVideoUrl(url) {
         let platform = '';
         let isValid = false;
-
-        // YouTube validation
         if (url.includes('youtube.com/watch') || url.includes('youtu.be/')) {
             platform = 'YouTube';
             isValid = true;
-        }
-        // Vimeo validation
-        else if (url.includes('vimeo.com/')) {
+        } else if (url.includes('vimeo.com/')) {
             platform = 'Vimeo';
             isValid = true;
-        }
-        // Direct video link validation (basic check)
-        else if (url.match(/\.(mp4|webm|ogg|avi|mov|wmv|flv|mkv)(\?.*)?$/i)) {
+        } else if (url.match(/\.(mp4|webm|ogg|avi|mov|wmv|flv|mkv)(\?.*)?$/i)) {
             platform = 'Direct Video Link';
             isValid = true;
-        }
-        // Other video platforms
-        else if (url.includes('dailymotion.com') || url.includes('twitch.tv')) {
+        } else if (url.includes('dailymotion.com') || url.includes('twitch.tv')) {
             platform = url.includes('dailymotion.com') ? 'Dailymotion' : 'Twitch';
             isValid = true;
         }
-
         if (isValid) {
             detectedPlatform.textContent = `Platform: ${platform}`;
             urlPreview.classList.remove('hidden');
@@ -320,20 +301,16 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     }
 
-    // Form submission with loading
+    // Form submission with AJAX
     form.addEventListener('submit', function(e) {
         e.preventDefault();
-        
-        // Check content type and determine if files will be uploaded
         const selectedContentType = contentType.value;
         const videoOption = document.querySelector('input[name="video_option"]:checked')?.value;
-        
         let hasFiles = false;
         let isVideoUrl = false;
-        
-        // Check for actual file uploads
+
+        // Check for file uploads
         if (thumbnailInput.files.length > 0) hasFiles = true;
-        
         if (selectedContentType === 'video') {
             if (videoOption === 'upload' && videoFileInput.files.length > 0) {
                 hasFiles = true;
@@ -346,24 +323,78 @@ document.addEventListener('DOMContentLoaded', function () {
             hasFiles = true;
         }
 
-        // Show loading overlay only for file uploads, not for URL submissions
-        if (hasFiles) {
-            showLoadingOverlay();
-            simulateProgress();
-        } else if (isVideoUrl) {
-            // For video URLs, show a quick processing message
-            showQuickProcessing();
-        }
+        // Re-enable file inputs to ensure they're included
+        if (videoFileInput.disabled) videoFileInput.disabled = false;
+        if (videoUrlInput.disabled) videoUrlInput.disabled = false;
 
-        // Disable submit button
+        // Prepare form data
+        const formData = new FormData(form);
         submitBtn.disabled = true;
         submitText.classList.add('hidden');
         submitLoading.classList.remove('hidden');
 
-        // Submit form after a short delay
-        setTimeout(() => {
-            form.submit();
-        }, hasFiles ? 1000 : (isVideoUrl ? 500 : 100));
+        if (hasFiles) {
+            showLoadingOverlay();
+            // Real progress tracking
+            const xhr = new XMLHttpRequest();
+            xhr.open('POST', form.action, true);
+            xhr.setRequestHeader('X-CSRF-TOKEN', form.querySelector('input[name="_token"]').value);
+
+            xhr.upload.onprogress = function(e) {
+                if (e.lengthComputable) {
+                    const percent = (e.loaded / e.total) * 100;
+                    progressBar.style.width = percent + '%';
+                    progressText.textContent = Math.round(percent) + '%';
+                }
+            };
+
+            xhr.onload = function() {
+                hideLoadingOverlay();
+                submitBtn.disabled = false;
+                submitText.classList.remove('hidden');
+                submitLoading.classList.add('hidden');
+                if (xhr.status >= 200 && xhr.status < 300) {
+                    const response = JSON.parse(xhr.responseText);
+                    window.location.href = response.redirect || '/';
+                } else {
+                    alert('Upload failed: ' + xhr.responseText);
+                }
+            };
+
+            xhr.onerror = function() {
+                hideLoadingOverlay();
+                submitBtn.disabled = false;
+                submitText.classList.remove('hidden');
+                submitLoading.classList.add('hidden');
+                alert('Upload failed due to a network error.');
+            };
+
+            xhr.send(formData);
+        } else {
+            if (isVideoUrl) {
+                showQuickProcessing();
+            }
+            // Non-file submissions
+            fetch(form.action, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-CSRF-TOKEN': form.querySelector('input[name="_token"]').value
+                }
+            }).then(response => response.json())
+              .then(data => {
+                  submitBtn.disabled = false;
+                  submitText.classList.remove('hidden');
+                  submitLoading.classList.add('hidden');
+                  window.location.href = data.redirect || '/';
+              })
+              .catch(error => {
+                  submitBtn.disabled = false;
+                  submitText.classList.remove('hidden');
+                  submitLoading.classList.add('hidden');
+                  alert('Submission failed: ' + error.message);
+              });
+        }
     });
 
     function showQuickProcessing() {
@@ -379,42 +410,14 @@ document.addEventListener('DOMContentLoaded', function () {
     function showLoadingOverlay() {
         loadingOverlay.classList.remove('hidden');
         loadingOverlay.classList.add('flex');
+        progressBar.style.width = '0%';
+        progressText.textContent = '0%';
     }
 
     function hideLoadingOverlay() {
         loadingOverlay.classList.add('hidden');
         loadingOverlay.classList.remove('flex');
     }
-
-    function simulateProgress() {
-        let progress = 0;
-        const interval = setInterval(() => {
-            progress += Math.random() * 15;
-            if (progress > 90) {
-                progress = 90;
-            }
-            
-            progressBar.style.width = progress + '%';
-            progressText.textContent = Math.round(progress) + '%';
-            
-            if (progress >= 90) {
-                clearInterval(interval);
-                // Complete progress when form actually submits
-                setTimeout(() => {
-                    progressBar.style.width = '100%';
-                    progressText.textContent = '100%';
-                }, 500);
-            }
-        }, 200);
-    }
-
-    // Handle form validation errors (if redirected back)
-    window.addEventListener('pageshow', function() {
-        hideLoadingOverlay();
-        submitBtn.disabled = false;
-        submitText.classList.remove('hidden');
-        submitLoading.classList.add('hidden');
-    });
 });
 </script>
 
