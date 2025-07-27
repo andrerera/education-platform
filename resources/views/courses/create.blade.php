@@ -7,7 +7,22 @@
         <p class="text-gray-500 mt-2">Fill in the details below to add a new course for review.</p>
     </div>
 
-    <form action="{{ route('courses.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden items-center justify-center">
+        <div class="bg-white rounded-lg p-8 max-w-sm mx-4 text-center">
+            <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-indigo-600 mx-auto mb-4"></div>
+            <h3 class="text-lg font-semibold text-gray-800 mb-2">Uploading Content...</h3>
+            <p class="text-gray-600 text-sm">Please wait while we process your files</p>
+            <div class="mt-4">
+                <div class="bg-gray-200 rounded-full h-2">
+                    <div id="progressBar" class="bg-indigo-600 h-2 rounded-full transition-all duration-300" style="width: 0%"></div>
+                </div>
+                <p id="progressText" class="text-sm text-gray-600 mt-2">0%</p>
+            </div>
+        </div>
+    </div>
+
+    <form id="courseForm" action="{{ route('courses.store') }}" method="POST" enctype="multipart/form-data" class="space-y-6">
         @csrf
 
         <!-- Title -->
@@ -24,6 +39,9 @@
             <label for="thumbnail" class="block text-sm font-medium text-gray-700">Thumbnail (Optional)</label>
             <input type="file" name="thumbnail" id="thumbnail" accept="image/*"
                 class="mt-1 block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+            <div id="thumbnailPreview" class="mt-2 hidden">
+                <img id="thumbnailImg" src="" alt="Thumbnail preview" class="w-24 h-24 object-cover rounded-lg">
+            </div>
         </div>
 
         <!-- Content Type -->
@@ -65,8 +83,11 @@
 
             <div id="video_upload">
                 <label for="video_file" class="block text-sm font-medium text-gray-700">Upload Video File</label>
-                <input type="file" name="video_file" accept="video/*"
+                <input type="file" name="video_file" id="video_file" accept="video/*"
                     class="mt-1 block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                <div id="videoInfo" class="mt-2 text-sm text-gray-600 hidden">
+                    <span id="videoName"></span> - <span id="videoSize"></span>
+                </div>
             </div>
 
             <div id="video_url" class="hidden">
@@ -79,27 +100,42 @@
         <!-- Audio -->
         <div id="audio_wrapper" class="hidden">
             <label for="audio_file" class="block text-sm font-medium text-gray-700">Upload Audio (.mp3)</label>
-            <input type="file" name="audio_file" accept="audio/mpeg"
+            <input type="file" name="audio_file" id="audio_file" accept="audio/mpeg"
                 class="mt-1 block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+            <div id="audioInfo" class="mt-2 text-sm text-gray-600 hidden">
+                <span id="audioName"></span> - <span id="audioSize"></span>
+            </div>
         </div>
 
         <!-- PDF -->
         <div id="pdf_wrapper" class="hidden">
             <label for="pdf_file" class="block text-sm font-medium text-gray-700">Upload PDF</label>
-            <input type="file" name="pdf_file" accept="application/pdf"
+            <input type="file" name="pdf_file" id="pdf_file" accept="application/pdf"
                 class="mt-1 block w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+            <div id="pdfInfo" class="mt-2 text-sm text-gray-600 hidden">
+                <span id="pdfName"></span> - <span id="pdfSize"></span>
+            </div>
         </div>
 
         <!-- Actions -->
         <div class="flex justify-between items-center pt-6">
             <a href="{{ route('home') }}" class="text-gray-600 hover:text-indigo-600 font-medium">Cancel</a>
-            <button type="submit"
-                class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition font-semibold">Submit</button>
+            <button type="submit" id="submitBtn"
+                class="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition font-semibold disabled:opacity-50 disabled:cursor-not-allowed">
+                <span id="submitText">Submit</span>
+                <span id="submitLoading" class="hidden">
+                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                    </svg>
+                    Uploading...
+                </span>
+            </button>
         </div>
     </form>
 </div>
 
-<!-- JavaScript: Dynamic Content Display -->
+<!-- JavaScript: Dynamic Content Display & Upload Progress -->
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const contentType = document.getElementById('content_type');
@@ -112,6 +148,21 @@ document.addEventListener('DOMContentLoaded', function () {
     const videoURL = document.getElementById('video_url');
     const videoRadios = document.querySelectorAll('input[name="video_option"]');
 
+    const form = document.getElementById('courseForm');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const submitBtn = document.getElementById('submitBtn');
+    const submitText = document.getElementById('submitText');
+    const submitLoading = document.getElementById('submitLoading');
+    const progressBar = document.getElementById('progressBar');
+    const progressText = document.getElementById('progressText');
+
+    // File input elements
+    const thumbnailInput = document.getElementById('thumbnail');
+    const videoFileInput = document.getElementById('video_file');
+    const audioFileInput = document.getElementById('audio_file');
+    const pdfFileInput = document.getElementById('pdf_file');
+
+    // Content type change handler
     contentType.addEventListener('change', function () {
         descWrapper.classList.add('hidden');
         videoWrapper.classList.add('hidden');
@@ -134,6 +185,7 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
 
+    // Video radio button handler
     videoRadios.forEach(radio => {
         radio.addEventListener('change', function () {
             if (this.value === 'upload') {
@@ -145,6 +197,142 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         });
     });
+
+    // File info display functions
+    function formatFileSize(bytes) {
+        if (bytes === 0) return '0 Bytes';
+        const k = 1024;
+        const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+        const i = Math.floor(Math.log(bytes) / Math.log(k));
+        return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+    }
+
+    function showFileInfo(input, nameElement, sizeElement, infoElement) {
+        input.addEventListener('change', function() {
+            const file = this.files[0];
+            if (file) {
+                nameElement.textContent = file.name;
+                sizeElement.textContent = formatFileSize(file.size);
+                infoElement.classList.remove('hidden');
+            } else {
+                infoElement.classList.add('hidden');
+            }
+        });
+    }
+
+    // Thumbnail preview
+    thumbnailInput.addEventListener('change', function() {
+        const file = this.files[0];
+        const preview = document.getElementById('thumbnailPreview');
+        const img = document.getElementById('thumbnailImg');
+        
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                img.src = e.target.result;
+                preview.classList.remove('hidden');
+            };
+            reader.readAsDataURL(file);
+        } else {
+            preview.classList.add('hidden');
+        }
+    });
+
+    // Setup file info displays
+    showFileInfo(videoFileInput, document.getElementById('videoName'), document.getElementById('videoSize'), document.getElementById('videoInfo'));
+    showFileInfo(audioFileInput, document.getElementById('audioName'), document.getElementById('audioSize'), document.getElementById('audioInfo'));
+    showFileInfo(pdfFileInput, document.getElementById('pdfName'), document.getElementById('pdfSize'), document.getElementById('pdfInfo'));
+
+    // Form submission with loading
+    form.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Check if there are files to upload
+        const hasFiles = thumbnailInput.files.length > 0 || 
+                         videoFileInput.files.length > 0 || 
+                         audioFileInput.files.length > 0 || 
+                         pdfFileInput.files.length > 0;
+
+        if (hasFiles) {
+            showLoadingOverlay();
+            simulateProgress();
+        }
+
+        // Disable submit button
+        submitBtn.disabled = true;
+        submitText.classList.add('hidden');
+        submitLoading.classList.remove('hidden');
+
+        // Submit form after a short delay to show loading
+        setTimeout(() => {
+            form.submit();
+        }, hasFiles ? 1000 : 100);
+    });
+
+    function showLoadingOverlay() {
+        loadingOverlay.classList.remove('hidden');
+        loadingOverlay.classList.add('flex');
+    }
+
+    function hideLoadingOverlay() {
+        loadingOverlay.classList.add('hidden');
+        loadingOverlay.classList.remove('flex');
+    }
+
+    function simulateProgress() {
+        let progress = 0;
+        const interval = setInterval(() => {
+            progress += Math.random() * 15;
+            if (progress > 90) {
+                progress = 90;
+            }
+            
+            progressBar.style.width = progress + '%';
+            progressText.textContent = Math.round(progress) + '%';
+            
+            if (progress >= 90) {
+                clearInterval(interval);
+                // Complete progress when form actually submits
+                setTimeout(() => {
+                    progressBar.style.width = '100%';
+                    progressText.textContent = '100%';
+                }, 500);
+            }
+        }, 200);
+    }
+
+    // Handle form validation errors (if redirected back)
+    window.addEventListener('pageshow', function() {
+        hideLoadingOverlay();
+        submitBtn.disabled = false;
+        submitText.classList.remove('hidden');
+        submitLoading.classList.add('hidden');
+    });
 });
 </script>
+
+<style>
+/* Additional styles for better loading experience */
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* Custom file input styling */
+input[type="file"]::-webkit-file-upload-button {
+    transition: all 0.3s ease;
+}
+
+input[type="file"]::-webkit-file-upload-button:hover {
+    transform: translateY(-1px);
+}
+</style>
 @endsection
