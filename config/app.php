@@ -123,6 +123,7 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
     'aliases' => [
-        'StorageUrl' => App\Helpers\SupabaseUrl::class, // ✅ TARUH DI SINI
+        'StorageUrl' => App\Helpers\SupabaseUrl::class,
+        'View' => Illuminate\Support\Facades\View::class,
     ],
 ];
