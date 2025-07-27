@@ -45,13 +45,19 @@ class CourseController extends Controller
     /**
      * Sanitize string to ensure valid UTF-8
      */
-    private function sanitizeUtf8($string)
+    private function sanitizeUtf8($data)
     {
-        if (!is_string($string)) {
-            return $string;
+        if (is_string($data)) {
+            // Remove invalid UTF-8 characters and convert to UTF-8
+            $data = mb_convert_encoding($data, 'UTF-8', 'auto');
+            // Replace any remaining invalid characters with a placeholder
+            $data = preg_replace('/[^\x{0009}\x{000A}\x{000D}\x{0020}-\x{D7FF}\x{E000}-\x{FFFD}]/u', '', $data);
+            return $data;
+        } elseif (is_array($data)) {
+            // Recursively sanitize arrays
+            return array_map([$this, 'sanitizeUtf8'], $data);
         }
-        // Convert to UTF-8, removing or replacing invalid characters
-        return mb_convert_encoding($string, 'UTF-8', 'UTF-8');
+        return $data;
     }
 
     public function store(Request $request)
@@ -166,14 +172,14 @@ class CourseController extends Controller
                     $uploadedPath = SupabaseUploader::upload($request->file('video_file'), 'video');
                     return [
                         'content' => $uploadedPath,
-                        'metadata' => json_encode([
+                        'metadata' => json_encode($this->sanitizeUtf8([
                             'type' => 'upload',
-                            'original_name' => $this->sanitizeUtf8($request->file('video_file')->getClientOriginalName()),
+                            'original_name' => $request->file('video_file')->getClientOriginalName(),
                             'size' => $request->file('video_file')->getSize()
-                        ], JSON_THROW_ON_ERROR)
+                        ]), JSON_THROW_ON_ERROR)
                     ];
                 } elseif ($request->video_option === 'url' && $request->video_url) {
-                    $urlInfo = $this->getVideoUrlInfo($request->video_url);
+                    $urlInfo = $this->sanitizeUtf8($this->getVideoUrlInfo($request->video_url));
                     return [
                         'content' => $request->video_url,
                         'metadata' => json_encode(array_merge($urlInfo, ['type' => 'url']), JSON_THROW_ON_ERROR)
@@ -186,11 +192,11 @@ class CourseController extends Controller
                     $uploadedPath = SupabaseUploader::upload($request->file('audio_file'), 'audio');
                     return [
                         'content' => $uploadedPath,
-                        'metadata' => json_encode([
+                        'metadata' => json_encode($this->sanitizeUtf8([
                             'type' => 'upload',
-                            'original_name' => $this->sanitizeUtf8($request->file('audio_file')->getClientOriginalName()),
+                            'original_name' => $request->file('audio_file')->getClientOriginalName(),
                             'size' => $request->file('audio_file')->getSize()
-                        ], JSON_THROW_ON_ERROR)
+                        ]), JSON_THROW_ON_ERROR)
                     ];
                 }
                 break;
@@ -200,11 +206,11 @@ class CourseController extends Controller
                     $uploadedPath = SupabaseUploader::upload($request->file('pdf_file'), 'pdf');
                     return [
                         'content' => $uploadedPath,
-                        'metadata' => json_encode([
+                        'metadata' => json_encode($this->sanitizeUtf8([
                             'type' => 'upload',
-                            'original_name' => $this->sanitizeUtf8($request->file('pdf_file')->getClientOriginalName()),
+                            'original_name' => $request->file('pdf_file')->getClientOriginalName(),
                             'size' => $request->file('pdf_file')->getSize()
-                        ], JSON_THROW_ON_ERROR)
+                        ]), JSON_THROW_ON_ERROR)
                     ];
                 }
                 break;
@@ -216,14 +222,14 @@ class CourseController extends Controller
     private function createVideoLinkReference($url, $title, $courseId)
     {
         try {
-            $linkData = [
+            $linkData = $this->sanitizeUtf8([
                 'course_id' => $courseId,
-                'title' => $this->sanitizeUtf8($title),
-                'url' => $this->sanitizeUtf8($url),
+                'title' => $title,
+                'url' => $url,
                 'url_info' => $this->getVideoUrlInfo($url),
                 'created_at' => now()->toDateTimeString(),
                 'type' => 'video_link'
-            ];
+            ]);
 
             $filename = 'video_link_' . $courseId . '_' . time() . '.json';
             $content = json_encode($linkData, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR);
@@ -258,14 +264,14 @@ class CourseController extends Controller
             $info['platform'] = 'youtube';
             if (strpos($url, 'youtube.com/watch') !== false) {
                 parse_str(parse_url($url, PHP_URL_QUERY), $query);
-                $info['video_id'] = $query['v'] ?? null;
+                $info['video_id'] = $this->sanitizeUtf8($query['v'] ?? null);
             } else {
-                $info['video_id'] = substr(parse_url($url, PHP_URL_PATH), 1);
+                $info['video_id'] = $this->sanitizeUtf8(substr(parse_url($url, PHP_URL_PATH), 1));
             }
         } elseif (strpos($url, 'vimeo.com/') !== false) {
             $info['platform'] = 'vimeo';
             $path = parse_url($url, PHP_URL_PATH);
-            $info['video_id'] = trim($path, '/');
+            $info['video_id'] = $this->sanitizeUtf8(trim($path, '/'));
         } elseif (strpos($url, 'dailymotion.com') !== false) {
             $info['platform'] = 'dailymotion';
         } elseif (strpos($url, 'twitch.tv') !== false) {
