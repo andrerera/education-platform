@@ -92,8 +92,22 @@
 
             <div id="video_url" class="hidden">
                 <label for="video_url_input" class="block text-sm font-medium text-gray-700">Video URL</label>
-                <input type="url" name="video_url" id="video_url_input" placeholder="https://youtube.com/..."
+                <input type="url" name="video_url" id="video_url_input" placeholder="https://youtube.com/watch?v=... or https://vimeo.com/..."
                     class="mt-1 block w-full rounded-lg border-gray-300 shadow-sm focus:ring-indigo-500 focus:border-indigo-500 p-3">
+                <div class="mt-2 text-sm text-gray-500">
+                    <strong>Supported platforms:</strong> YouTube, Vimeo, or direct video links
+                </div>
+                <div id="urlPreview" class="mt-3 hidden">
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+                        <div class="flex items-center">
+                            <svg class="w-5 h-5 text-green-600 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                            </svg>
+                            <span class="text-green-800 text-sm font-medium">Valid URL detected</span>
+                        </div>
+                        <p class="text-green-700 text-sm mt-1" id="detectedPlatform"></p>
+                    </div>
+                </div>
             </div>
         </div>
 
@@ -191,9 +205,25 @@ document.addEventListener('DOMContentLoaded', function () {
             if (this.value === 'upload') {
                 videoUpload.classList.remove('hidden');
                 videoURL.classList.add('hidden');
+                // Enable video file input
+                videoFileInput.disabled = false;
+                videoFileInput.name = 'video_file';
+                // Clear and disable video URL input
+                document.getElementById('video_url_input').value = '';
+                document.getElementById('video_url_input').disabled = true;
+                document.getElementById('video_url_input').name = '';
             } else {
                 videoUpload.classList.add('hidden');
                 videoURL.classList.remove('hidden');
+                // Enable video URL input
+                document.getElementById('video_url_input').disabled = false;
+                document.getElementById('video_url_input').name = 'video_url';
+                // Clear and disable video file input
+                videoFileInput.value = '';
+                videoFileInput.disabled = true;
+                videoFileInput.name = '';
+                // Hide file info
+                document.getElementById('videoInfo').classList.add('hidden');
             }
         });
     });
@@ -243,19 +273,86 @@ document.addEventListener('DOMContentLoaded', function () {
     showFileInfo(audioFileInput, document.getElementById('audioName'), document.getElementById('audioSize'), document.getElementById('audioInfo'));
     showFileInfo(pdfFileInput, document.getElementById('pdfName'), document.getElementById('pdfSize'), document.getElementById('pdfInfo'));
 
+    // Video URL validation and preview
+    const videoUrlInput = document.getElementById('video_url_input');
+    const urlPreview = document.getElementById('urlPreview');
+    const detectedPlatform = document.getElementById('detectedPlatform');
+
+    videoUrlInput.addEventListener('input', function() {
+        const url = this.value.trim();
+        if (url) {
+            validateVideoUrl(url);
+        } else {
+            urlPreview.classList.add('hidden');
+        }
+    });
+
+    function validateVideoUrl(url) {
+        let platform = '';
+        let isValid = false;
+
+        // YouTube validation
+        if (url.includes('youtube.com/watch') || url.includes('youtu.be/')) {
+            platform = 'YouTube';
+            isValid = true;
+        }
+        // Vimeo validation
+        else if (url.includes('vimeo.com/')) {
+            platform = 'Vimeo';
+            isValid = true;
+        }
+        // Direct video link validation (basic check)
+        else if (url.match(/\.(mp4|webm|ogg|avi|mov|wmv|flv|mkv)(\?.*)?$/i)) {
+            platform = 'Direct Video Link';
+            isValid = true;
+        }
+        // Other video platforms
+        else if (url.includes('dailymotion.com') || url.includes('twitch.tv')) {
+            platform = url.includes('dailymotion.com') ? 'Dailymotion' : 'Twitch';
+            isValid = true;
+        }
+
+        if (isValid) {
+            detectedPlatform.textContent = `Platform: ${platform}`;
+            urlPreview.classList.remove('hidden');
+        } else {
+            urlPreview.classList.add('hidden');
+        }
+    }
+
     // Form submission with loading
     form.addEventListener('submit', function(e) {
         e.preventDefault();
         
-        // Check if there are files to upload
-        const hasFiles = thumbnailInput.files.length > 0 || 
-                         videoFileInput.files.length > 0 || 
-                         audioFileInput.files.length > 0 || 
-                         pdfFileInput.files.length > 0;
+        // Check content type and determine if files will be uploaded
+        const selectedContentType = contentType.value;
+        const videoOption = document.querySelector('input[name="video_option"]:checked')?.value;
+        
+        let hasFiles = false;
+        let isVideoUrl = false;
+        
+        // Check for actual file uploads
+        if (thumbnailInput.files.length > 0) hasFiles = true;
+        
+        if (selectedContentType === 'video') {
+            if (videoOption === 'upload' && videoFileInput.files.length > 0) {
+                hasFiles = true;
+            } else if (videoOption === 'url' && videoUrlInput.value.trim()) {
+                isVideoUrl = true;
+            }
+        } else if (selectedContentType === 'audio' && audioFileInput.files.length > 0) {
+            hasFiles = true;
+        } else if (selectedContentType === 'pdf' && pdfFileInput.files.length > 0) {
+            hasFiles = true;
+        }
 
+        // Show loading overlay only for file uploads, not for URL submissions
         if (hasFiles) {
             showLoadingOverlay();
             simulateProgress();
+        } else if (isVideoUrl) {
+            // For video URLs, show a quick processing message
+            showQuickProcessing();
         }
 
         // Disable submit button
@@ -263,11 +360,21 @@ document.addEventListener('DOMContentLoaded', function () {
         submitText.classList.add('hidden');
         submitLoading.classList.remove('hidden');
 
-        // Submit form after a short delay to show loading
+        // Submit form after a short delay
         setTimeout(() => {
             form.submit();
-        }, hasFiles ? 1000 : 100);
+        }, hasFiles ? 1000 : (isVideoUrl ? 500 : 100));
     });
+
+    function showQuickProcessing() {
+        submitBtn.innerHTML = `
+            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+            </svg>
+            Processing URL...
+        `;
+    }
 
     function showLoadingOverlay() {
         loadingOverlay.classList.remove('hidden');
