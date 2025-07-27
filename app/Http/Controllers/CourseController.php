@@ -42,22 +42,38 @@ class CourseController extends Controller
     {
         return view('courses.create');
     }
-    /**
-     * Sanitize string to ensure valid UTF-8
-     */
-    private function sanitizeUtf8($data)
+private function sanitizeUtf8($data)
     {
         if (is_string($data)) {
-            // Remove invalid UTF-8 characters and convert to UTF-8
-            $data = mb_convert_encoding($data, 'UTF-8', 'auto');
-            // Replace any remaining invalid characters with a placeholder
+            // Pastikan encoding yang benar dan bersihkan karakter invalid
+            $data = mb_convert_encoding($data, 'UTF-8', 'UTF-8');
+            
+            // Hapus karakter yang tidak valid untuk JSON
+            $data = preg_replace('/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/', '', $data);
+            
+            // Hapus karakter Unicode yang bermasalah
             $data = preg_replace('/[^\x{0009}\x{000A}\x{000D}\x{0020}-\x{D7FF}\x{E000}-\x{FFFD}]/u', '', $data);
-            return $data;
+            
+            return trim($data);
         } elseif (is_array($data)) {
-            // Recursively sanitize arrays
             return array_map([$this, 'sanitizeUtf8'], $data);
+        } elseif (is_object($data)) {
+            // Handle objects
+            $array = (array) $data;
+            return (object) $this->sanitizeUtf8($array);
         }
+        
         return $data;
+    }
+
+    private function validateJsonData($data)
+    {
+        // Test apakah data bisa di-encode ke JSON
+        $json = json_encode($data);
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            throw new \Exception('JSON encoding error: ' . json_last_error_msg());
+        }
+        return $json;
     }
 
     public function store(Request $request)
@@ -68,14 +84,20 @@ class CourseController extends Controller
             'files' => array_keys($request->allFiles())
         ]);
 
-        // Sanitize string inputs
-        $request->merge([
-            'title' => $this->sanitizeUtf8($request->title),
-            'description' => $this->sanitizeUtf8($request->description),
-            'video_url' => $this->sanitizeUtf8($request->video_url),
-        ]);
+        // Sanitize ALL string inputs dari request
+        $sanitizedData = [];
+        foreach ($request->all() as $key => $value) {
+            if (is_string($value)) {
+                $sanitizedData[$key] = $this->sanitizeUtf8($value);
+            } else {
+                $sanitizedData[$key] = $value;
+            }
+        }
+        
+        // Replace request data dengan yang sudah di-sanitize
+        $request->merge($sanitizedData);
 
-        // Dynamic validation
+        // Dynamic validation (sama seperti sebelumnya)
         $rules = [
             'title' => 'required|string|max:255',
             'thumbnail' => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
@@ -119,14 +141,19 @@ class CourseController extends Controller
                 Log::info('Thumbnail uploaded', ['path' => $thumbnailPath]);
             }
 
-            // Create Course
-            $course = Course::create([
-                'title' => $validated['title'],
-                'description' => $validated['description'] ?? '-',
+            // Create Course dengan data yang sudah di-sanitize
+            $courseData = [
+                'title' => $this->sanitizeUtf8($validated['title']),
+                'description' => $this->sanitizeUtf8($validated['description'] ?? '-'),
                 'thumbnail' => $thumbnailPath,
                 'status' => 'pending',
                 'user_id' => auth()->id(),
-            ]);
+            ];
+
+            // Validate course data sebelum create
+            $this->validateJsonData($courseData);
+
+            $course = Course::create($courseData);
             Log::info('Course created', ['course_id' => $course->id]);
 
             // Handle Course Content
@@ -134,13 +161,18 @@ class CourseController extends Controller
             Log::info('Content data processed', ['content_data' => $contentData]);
 
             if ($contentData) {
-                CourseContent::create([
+                $courseContentData = [
                     'course_id' => $course->id,
                     'content_type' => $request->content_type,
                     'content' => $contentData['content'],
                     'content_metadata' => $contentData['metadata'] ?? null,
                     'order' => 1,
-                ]);
+                ];
+
+                // Validate content data sebelum create
+                $this->validateJsonData($courseContentData);
+
+                CourseContent::create($courseContentData);
                 Log::info('Course content created', ['course_id' => $course->id]);
 
                 if ($request->content_type === 'video' && $request->video_option === 'url') {
@@ -155,6 +187,7 @@ class CourseController extends Controller
                 'error' => $e->getMessage(),
                 'trace' => $e->getTraceAsString(),
                 'user_id' => auth()->id(),
+                'json_last_error' => json_last_error_msg(),
                 'request_data' => $request->except(['_token', 'video_file', 'audio_file', 'pdf_file', 'thumbnail'])
             ]);
             return back()->withInput()->with('error', 'Failed to create course: ' . $e->getMessage());
@@ -170,19 +203,30 @@ class CourseController extends Controller
             case 'video':
                 if ($request->video_option === 'upload' && $request->hasFile('video_file') && $request->file('video_file')->isValid()) {
                     $uploadedPath = SupabaseUploader::upload($request->file('video_file'), 'video');
+                    
+                    $metadata = [
+                        'type' => 'upload',
+                        'original_name' => $this->sanitizeUtf8($request->file('video_file')->getClientOriginalName()),
+                        'size' => $request->file('video_file')->getSize()
+                    ];
+                    
+                    // Validate metadata sebelum encode
+                    $metadataJson = $this->validateJsonData($metadata);
+                    
                     return [
                         'content' => $uploadedPath,
-                        'metadata' => json_encode($this->sanitizeUtf8([
-                            'type' => 'upload',
-                            'original_name' => $request->file('video_file')->getClientOriginalName(),
-                            'size' => $request->file('video_file')->getSize()
-                        ]), JSON_THROW_ON_ERROR)
+                        'metadata' => $metadataJson
                     ];
                 } elseif ($request->video_option === 'url' && $request->video_url) {
-                    $urlInfo = $this->sanitizeUtf8($this->getVideoUrlInfo($request->video_url));
+                    $urlInfo = $this->getVideoUrlInfo($request->video_url);
+                    $metadata = array_merge($urlInfo, ['type' => 'url']);
+                    
+                    // Validate metadata sebelum encode
+                    $metadataJson = $this->validateJsonData($metadata);
+                    
                     return [
-                        'content' => $request->video_url,
-                        'metadata' => json_encode(array_merge($urlInfo, ['type' => 'url']), JSON_THROW_ON_ERROR)
+                        'content' => $this->sanitizeUtf8($request->video_url),
+                        'metadata' => $metadataJson
                     ];
                 }
                 break;
@@ -190,13 +234,19 @@ class CourseController extends Controller
             case 'audio':
                 if ($request->hasFile('audio_file') && $request->file('audio_file')->isValid()) {
                     $uploadedPath = SupabaseUploader::upload($request->file('audio_file'), 'audio');
+                    
+                    $metadata = [
+                        'type' => 'upload',
+                        'original_name' => $this->sanitizeUtf8($request->file('audio_file')->getClientOriginalName()),
+                        'size' => $request->file('audio_file')->getSize()
+                    ];
+                    
+                    // Validate metadata sebelum encode
+                    $metadataJson = $this->validateJsonData($metadata);
+                    
                     return [
                         'content' => $uploadedPath,
-                        'metadata' => json_encode($this->sanitizeUtf8([
-                            'type' => 'upload',
-                            'original_name' => $request->file('audio_file')->getClientOriginalName(),
-                            'size' => $request->file('audio_file')->getSize()
-                        ]), JSON_THROW_ON_ERROR)
+                        'metadata' => $metadataJson
                     ];
                 }
                 break;
@@ -204,13 +254,19 @@ class CourseController extends Controller
             case 'pdf':
                 if ($request->hasFile('pdf_file') && $request->file('pdf_file')->isValid()) {
                     $uploadedPath = SupabaseUploader::upload($request->file('pdf_file'), 'pdf');
+                    
+                    $metadata = [
+                        'type' => 'upload',
+                        'original_name' => $this->sanitizeUtf8($request->file('pdf_file')->getClientOriginalName()),
+                        'size' => $request->file('pdf_file')->getSize()
+                    ];
+                    
+                    // Validate metadata sebelum encode
+                    $metadataJson = $this->validateJsonData($metadata);
+                    
                     return [
                         'content' => $uploadedPath,
-                        'metadata' => json_encode($this->sanitizeUtf8([
-                            'type' => 'upload',
-                            'original_name' => $request->file('pdf_file')->getClientOriginalName(),
-                            'size' => $request->file('pdf_file')->getSize()
-                        ]), JSON_THROW_ON_ERROR)
+                        'metadata' => $metadataJson
                     ];
                 }
                 break;
@@ -222,17 +278,22 @@ class CourseController extends Controller
     private function createVideoLinkReference($url, $title, $courseId)
     {
         try {
-            $linkData = $this->sanitizeUtf8([
+            $linkData = [
                 'course_id' => $courseId,
-                'title' => $title,
-                'url' => $url,
+                'title' => $this->sanitizeUtf8($title),
+                'url' => $this->sanitizeUtf8($url),
                 'url_info' => $this->getVideoUrlInfo($url),
                 'created_at' => now()->toDateTimeString(),
                 'type' => 'video_link'
-            ]);
+            ];
 
+            // Validate sebelum encode
+            $content = $this->validateJsonData($linkData);
+            
+            // Format dengan pretty print
+            $content = json_encode(json_decode($content), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+            
             $filename = 'video_link_' . $courseId . '_' . time() . '.json';
-            $content = json_encode($linkData, JSON_PRETTY_PRINT | JSON_THROW_ON_ERROR);
             
             try {
                 $path = SupabaseUploader::uploadText($content, 'video/links/' . $filename);
@@ -244,7 +305,8 @@ class CourseController extends Controller
         } catch (\Exception $e) {
             Log::warning('Failed to create video link reference: ' . $e->getMessage(), [
                 'course_id' => $courseId,
-                'url' => $url
+                'url' => $url,
+                'json_last_error' => json_last_error_msg()
             ]);
             throw $e;
         }
